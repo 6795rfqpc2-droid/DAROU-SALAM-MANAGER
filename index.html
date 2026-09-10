@@ -1,0 +1,1735 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>DAROU SALAM MANAGER</title>
+
+    <!-- Police -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Notre CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- =====================================================
+         PAGE DE CONNEXION
+    ====================================================== -->
+
+    <section id="loginPage" class="login-page">
+
+        <div class="login-box">
+
+            <div class="login-logo">
+                🌸
+            </div>
+
+            <h1>DAROU SALAM</h1>
+            <p class="login-subtitle">MANAGER</p>
+
+            <p class="login-description">
+                Connectez-vous pour gérer votre boutique.
+            </p>
+
+            <form id="loginForm">
+
+                <div class="form-group">
+                    <label for="loginEmail">Adresse e-mail</label>
+                    <input
+                        type="email"
+                        id="loginEmail"
+                        placeholder="Votre adresse e-mail"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">Mot de passe</label>
+                    <input
+                        type="password"
+                        id="loginPassword"
+                        placeholder="Votre mot de passe"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn-primary btn-full">
+                    Se connecter
+                </button>
+
+                <p id="loginMessage" class="form-message"></p>
+
+            </form>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         APPLICATION
+    ====================================================== -->
+
+    <div id="app" class="app hidden">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="sidebar-logo">
+                <div class="logo-icon">🌸</div>
+
+                <div>
+                    <h2>DAROU SALAM</h2>
+                    <span>MANAGER</span>
+                </div>
+            </div>
+
+
+            <nav class="main-nav">
+
+                <button class="nav-item active" data-page="dashboard">
+                    <span>🏠</span>
+                    <span>Tableau de bord</span>
+                </button>
+
+                <button class="nav-item" data-page="products">
+                    <span>📦</span>
+                    <span>Produits</span>
+                </button>
+
+                <button class="nav-item" data-page="sales">
+                    <span>🛍️</span>
+                    <span>Ventes</span>
+                </button>
+
+                <button class="nav-item" data-page="payments">
+                    <span>💳</span>
+                    <span>Paiements en cours</span>
+                </button>
+
+                <button class="nav-item" data-page="customers">
+                    <span>👥</span>
+                    <span>Clients</span>
+                </button>
+
+                <button class="nav-item" data-page="stock">
+                    <span>📊</span>
+                    <span>Stock</span>
+                </button>
+
+                <button class="nav-item" data-page="history">
+                    <span>🕘</span>
+                    <span>Historique</span>
+                </button>
+
+                <button class="nav-item" data-page="statistics">
+                    <span>📈</span>
+                    <span>Statistiques</span>
+                </button>
+
+                <button class="nav-item admin-only" data-page="staff">
+                    <span>👤</span>
+                    <span>Personnel</span>
+                </button>
+
+                <button class="nav-item" data-page="settings">
+                    <span>⚙️</span>
+                    <span>Paramètres</span>
+                </button>
+
+            </nav>
+
+
+            <!-- UTILISATEUR -->
+
+            <div class="sidebar-user">
+
+                <div class="user-avatar" id="userAvatar">
+                    A
+                </div>
+
+                <div class="user-info">
+                    <strong id="currentUserName">
+                        Administratrice
+                    </strong>
+
+                    <span id="currentUserRole">
+                        Administratrice
+                    </span>
+                </div>
+
+                <button id="logoutButton" class="logout-button" title="Déconnexion">
+                    ↪
+                </button>
+
+            </div>
+
+        </aside>
+
+
+        <!-- =================================================
+             CONTENU PRINCIPAL
+        ================================================== -->
+
+        <main class="main-content">
+
+            <!-- HEADER -->
+
+            <header class="top-header">
+
+                <button id="mobileMenuButton" class="mobile-menu-button">
+                    ☰
+                </button>
+
+                <div>
+                    <p class="header-small">GESTION DE BOUTIQUE</p>
+                    <h1 id="pageTitle">Tableau de bord</h1>
+                </div>
+
+                <div class="header-actions">
+
+                    <button id="refreshButton" class="icon-button" title="Actualiser">
+                        ↻
+                    </button>
+
+                    <div class="header-user">
+                        <span id="headerUserName">Administratrice</span>
+                    </div>
+
+                </div>
+
+            </header>
+
+
+            <!-- =================================================
+                 DASHBOARD
+            ================================================== -->
+
+            <section id="dashboardPage" class="page active">
+
+                <div class="welcome-card">
+
+                    <div>
+                        <p class="eyebrow">BIENVENUE 👋</p>
+
+                        <h2>
+                            Votre boutique en un coup d'œil
+                        </h2>
+
+                        <p>
+                            Suivez vos ventes, votre stock et vos paiements
+                            depuis un seul espace.
+                        </p>
+                    </div>
+
+                    <div class="welcome-icon">
+                        🌸
+                    </div>
+
+                </div>
+
+
+                <!-- STATISTIQUES -->
+
+                <div class="stats-grid">
+
+                    <article class="stat-card">
+                        <div class="stat-icon">💰</div>
+
+                        <div>
+                            <span>Chiffre d'affaires</span>
+                            <strong id="dashboardRevenue">0 F</strong>
+                        </div>
+                    </article>
+
+
+                    <article class="stat-card">
+                        <div class="stat-icon">🛍️</div>
+
+                        <div>
+                            <span>Ventes</span>
+                            <strong id="dashboardSalesCount">0</strong>
+                        </div>
+                    </article>
+
+
+                    <article class="stat-card">
+                        <div class="stat-icon">📦</div>
+
+                        <div>
+                            <span>Stock disponible</span>
+                            <strong id="dashboardStock">0</strong>
+                        </div>
+                    </article>
+
+
+                    <article class="stat-card">
+                        <div class="stat-icon">💳</div>
+
+                        <div>
+                            <span>Reste à payer</span>
+                            <strong id="dashboardRemaining">0 F</strong>
+                        </div>
+                    </article>
+
+                </div>
+
+
+                <!-- INDICATEURS PAIEMENTS -->
+
+                <div class="stats-grid secondary-stats">
+
+                    <article class="mini-stat-card">
+                        <span>Avances reçues</span>
+                        <strong id="dashboardPaid">0 F</strong>
+                    </article>
+
+                    <article class="mini-stat-card">
+                        <span>Réservations</span>
+                        <strong id="dashboardReservations">0</strong>
+                    </article>
+
+                    <article class="mini-stat-card">
+                        <span>Produits réservés</span>
+                        <strong id="dashboardReserved">0</strong>
+                    </article>
+
+                    <article class="mini-stat-card alert-mini">
+                        <span>Stock faible</span>
+                        <strong id="dashboardLowStock">0</strong>
+                    </article>
+
+                </div>
+
+
+                <!-- CONTENU -->
+
+                <div class="dashboard-grid">
+
+                    <div class="card">
+
+                        <div class="card-header">
+                            <div>
+                                <h3>Ventes récentes</h3>
+                                <p>Les dernières ventes enregistrées.</p>
+                            </div>
+
+                            <button
+                                class="btn-secondary"
+                                data-page-link="history"
+                            >
+                                Voir tout
+                            </button>
+                        </div>
+
+                        <div id="recentSales">
+                            <div class="empty-state">
+                                Aucune vente pour le moment.
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <div class="card-header">
+                            <div>
+                                <h3>Alertes stock</h3>
+                                <p>Produits nécessitant votre attention.</p>
+                            </div>
+                        </div>
+
+                        <div id="stockAlerts">
+                            <div class="empty-state">
+                                Aucune alerte.
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PRODUITS
+            ================================================== -->
+
+            <section id="productsPage" class="page">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="eyebrow">CATALOGUE</p>
+                        <h2>Produits</h2>
+                        <p>
+                            Ajoutez, modifiez et gérez vos produits.
+                        </p>
+                    </div>
+
+                    <button id="addProductButton" class="btn-primary">
+                        + Ajouter un produit
+                    </button>
+
+                </div>
+
+
+                <div class="toolbar">
+
+                    <div class="search-box">
+                        🔍
+                        <input
+                            type="search"
+                            id="productSearch"
+                            placeholder="Rechercher un produit..."
+                        >
+                    </div>
+
+                    <select id="productCategoryFilter">
+                        <option value="">Toutes les catégories</option>
+                    </select>
+
+                    <select id="productStockFilter">
+                        <option value="">Tous les stocks</option>
+                        <option value="available">Disponible</option>
+                        <option value="low">Stock faible</option>
+                        <option value="out">Rupture</option>
+                    </select>
+
+                </div>
+
+
+                <div id="productsGrid" class="products-grid">
+
+                    <div class="empty-state">
+                        Aucun produit enregistré.
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 VENTES
+            ================================================== -->
+
+            <section id="salesPage" class="page">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="eyebrow">COMMERCE</p>
+                        <h2>Nouvelle vente</h2>
+                        <p>
+                            Enregistrez une vente et mettez le stock à jour.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <form id="saleForm" class="form-card">
+
+                    <div class="form-section-title">
+                        <h3>Informations de la vente</h3>
+                    </div>
+
+
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <label for="saleProduct">
+                                Produit *
+                            </label>
+
+                            <select id="saleProduct" required>
+                                <option value="">
+                                    Sélectionner un produit
+                                </option>
+                            </select>
+                        </div>
+
+
+                        <div class="form-group">
+                            <label for="saleQuantity">
+                                Quantité *
+                            </label>
+
+                            <input
+                                type="number"
+                                id="saleQuantity"
+                                min="1"
+                                value="1"
+                                required
+                            >
+                        </div>
+
+
+                        <div class="form-group">
+                            <label for="saleCustomer">
+                                Client
+                            </label>
+
+                            <select id="saleCustomer">
+                                <option value="">
+                                    Client comptant / non enregistré
+                                </option>
+                            </select>
+                        </div>
+
+
+                        <div class="form-group">
+                            <label for="saleUnitPrice">
+                                Prix unitaire
+                            </label>
+
+                            <input
+                                type="number"
+                                id="saleUnitPrice"
+                                min="0"
+                                readonly
+                            >
+                        </div>
+
+                    </div>
+
+
+                    <div class="sale-total-box">
+
+                        <span>Total de la vente</span>
+
+                        <strong id="saleTotal">
+                            0 F
+                        </strong>
+
+                    </div>
+
+
+                    <div class="form-actions">
+
+                        <button
+                            type="reset"
+                            class="btn-secondary"
+                        >
+                            Annuler
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="btn-primary"
+                        >
+                            Enregistrer la vente
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </section>
+
+
+            <!-- =================================================
+                 PAIEMENTS
+            ================================================== -->
+
+            <section id="paymentsPage" class="page">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="eyebrow">PAIEMENTS</p>
+                        <h2>Paiements en cours</h2>
+                        <p>
+                            Suivez les avances, les restes et les réservations.
+                        </p>
+                    </div>
+
+                    <button id="addReservationButton" class="btn-primary">
+                        + Nouvelle réservation
+                    </button>
+
+                </div>
+
+
+                <div class="payment-summary">
+
+                    <div class="mini-stat-card">
+                        <span>Total des avances</span>
+                        <strong id="paymentsTotalPaid">0 F</strong>
+                    </div>
+
+                    <div class="mini-stat-card">
+                        <span>Total restant</span>
+                        <strong id="paymentsTotalRemaining">0 F</strong>
+                    </div>
+
+                    <div class="mini-stat-card">
+                        <span>En cours</span>
+                        <strong id="paymentsInProgress">0</strong>
+                    </div>
+
+                    <div class="mini-stat-card">
+                        <span>Payées</span>
+                        <strong id="paymentsCompleted">0</strong>
+                    </div>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="table-responsive">
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Client</th>
+                                    <th>Produit</th>
+                                    <th>Total</th>
+                                    <th>Payé</th>
+                                    <th>Reste</th>
+                                    <th>Statut</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="paymentsTableBody">
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                    <div id="paymentsEmpty" class="empty-state">
+                        Aucune réservation.
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 CLIENTS
+            ================================================== -->
+
+            <section id="customersPage" class="page">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="eyebrow">CLIENTS</p>
+                        <h2>Clients</h2>
+                        <p>
+                            Gérez les informations de vos clientes et clients.
+                        </p>
+                    </div>
+
+                    <button id="addCustomerButton" class="btn-primary">
+                        + Ajouter un client
+                    </button>
+
+                </div>
+
+
+                <div class="toolbar">
+
+                    <div class="search-box">
+                        🔍
+                        <input
+                            type="search"
+                            id="customerSearch"
+                            placeholder="Rechercher un client..."
+                        >
+                    </div>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="table-responsive">
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Téléphone</th>
+                                    <th>Adresse</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="customersTableBody">
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                    <div id="customersEmpty" class="empty-state">
+                        Aucun client enregistré.
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 STOCK
+            ================================================== -->
+
+            <section id="stockPage" class="page">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="eyebrow">INVENTAIRE</p>
+                        <h2>Stock</h2>
+                        <p>
+                            Consultez votre stock disponible et réservé.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="stock-overview">
+
+                    <div class="mini-stat-card">
+                        <span>Stock total</span>
+                        <strong id="stockTotal">0</strong>
+                    </div>
+
+                    <div class="mini-stat-card">
+                        <span>Disponible</span>
+                        <strong id="stockAvailable">0</strong>
+                    </div>
+
+                    <div class="mini-stat-card">
+                        <span>Réservé</span>
+                        <strong id="stockReserved">0</strong>
+                    </div>
+
+                    <div class="mini-stat-card alert-mini">
+                        <span>Rupture</span>
+                        <strong id="stockOut">0</strong>
+                    </div>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="table-responsive">
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Produit</th>
+                                    <th>Référence</th>
+                                    <th>Stock total</th>
+                                    <th>Réservé</th>
+                                    <th>Disponible</th>
+                                    <th>État</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="stockTableBody">
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 HISTORIQUE
+            ================================================== -->
+
+            <section id="historyPage" class="page">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="eyebrow">HISTORIQUE</p>
+                        <h2>Historique des ventes</h2>
+                        <p>
+                            Retrouvez toutes les ventes enregistrées.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="toolbar">
+
+                    <input
+                        type="date"
+                        id="historyDate"
+                    >
+
+                    <button
+                        id="clearHistoryFilter"
+                        class="btn-secondary"
+                    >
+                        Réinitialiser
+                    </button>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="table-responsive">
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Produit</th>
+                                    <th>Client</th>
+                                    <th>Quantité</th>
+                                    <th>Total</th>
+                                    <th>Enregistré par</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="historyTableBody">
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                    <div id="historyEmpty" class="empty-state">
+                        Aucune vente enregistrée.
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 STATISTIQUES
+            ================================================== -->
+
+            <section id="statisticsPage" class="page">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="eyebrow">ANALYSE</p>
+                        <h2>Statistiques</h2>
+                        <p>
+                            Analysez les performances de votre boutique.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="statistics-grid">
+
+                    <div class="card">
+                        <h3>Chiffre d'affaires</h3>
+                        <strong
+                            id="statisticsRevenue"
+                            class="big-number"
+                        >
+                            0 F
+                        </strong>
+                    </div>
+
+                    <div class="card">
+                        <h3>Bénéfice estimé</h3>
+                        <strong
+                            id="statisticsProfit"
+                            class="big-number"
+                        >
+                            0 F
+                        </strong>
+                    </div>
+
+                    <div class="card">
+                        <h3>Nombre de ventes</h3>
+                        <strong
+                            id="statisticsSales"
+                            class="big-number"
+                        >
+                            0
+                        </strong>
+                    </div>
+
+                    <div class="card">
+                        <h3>Produits</h3>
+                        <strong
+                            id="statisticsProducts"
+                            class="big-number"
+                        >
+                            0
+                        </strong>
+                    </div>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="card-header">
+                        <div>
+                            <h3>Produits les plus vendus</h3>
+                            <p>Classement basé sur les ventes enregistrées.</p>
+                        </div>
+                    </div>
+
+                    <div id="topProducts">
+                        <div class="empty-state">
+                            Pas encore de données.
+                        </div>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PERSONNEL
+            ================================================== -->
+
+            <section id="staffPage" class="page admin-page">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="eyebrow">ADMINISTRATION</p>
+                        <h2>Personnel</h2>
+                        <p>
+                            Gérez les comptes et les accès de votre équipe.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="card security-card">
+
+                    <div class="security-icon">
+                        🔐
+                    </div>
+
+                    <div>
+                        <h3>Gestion sécurisée des utilisateurs</h3>
+
+                        <p>
+                            🔐 Gestion sécurisée des utilisateurs
+                          Les comptes sont gérés de manière sécurisée. Les droits d’accès des administrateurs et du personnel sont contrôlés selon leur rôle.
+                        </p>
+                        <button type="button" id="addStaffBtn" class="btn-primary">
+                         + Ajouter un personnel
+                          </button>
+                          <div id="staffList" class="staff-list"></div>
+                    </div>
+
+                </div>
+
+ 
+                <div class="card">
+
+                    <div class="card-header">
+                        <div>
+                            <h3>Historique des actions</h3>
+                            <p>
+                                Consultez qui a effectué chaque action.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+
+                        <table>
+
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Utilisateur</th>
+                                    <th>Action</th>
+                                    <th>Élément</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="auditTableBody">
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PARAMÈTRES
+            ================================================== -->
+
+            <section id="settingsPage" class="page">
+
+                <div class="section-header">
+
+                    <div>
+                        <p class="eyebrow">CONFIGURATION</p>
+                        <h2>Paramètres</h2>
+                        <p>
+                            Configurez votre boutique.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="settings-grid">
+
+                    <div class="card">
+
+                        <h3>Catégories</h3>
+
+                        <p>
+                            Gérez les catégories de vos produits.
+                        </p>
+
+                        <div class="category-add">
+
+                            <input
+                                type="text"
+                                id="newCategoryName"
+                                placeholder="Nom de la catégorie"
+                            >
+
+                            <button
+                                id="addCategoryButton"
+                                class="btn-primary"
+                            >
+                                Ajouter
+                            </button>
+
+                        </div>
+
+                        <div id="categoriesList" class="categories-list">
+                        </div>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <h3>Mon profil</h3>
+
+                        <div class="profile-details">
+
+                            <div>
+                                <span>Nom</span>
+                                <strong id="profileName">
+                                    —
+                                </strong>
+
+                                <button type="button" id="editProfileName">Modifier</button>
+                            </div>
+
+                            <div>
+                                <span>E-mail</span>
+                                <strong id="profileEmail">
+                                    —
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>Rôle</span>
+                                <strong id="profileRole">
+                                    —
+                                </strong>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <!-- =====================================================
+         MODALE PRODUIT
+    ====================================================== -->
+
+    <dialog id="productModal">
+
+        <form id="productForm" class="modal-content">
+
+            <button
+                type="button"
+                class="modal-close"
+                data-close="productModal"
+            >
+                ×
+            </button>
+
+            <div class="modal-header">
+                <p class="eyebrow">CATALOGUE</p>
+                <h2 id="productModalTitle">
+                    Ajouter un produit
+                </h2>
+            </div>
+
+
+            <input
+                type="hidden"
+                id="productId"
+            >
+
+
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label for="productName">
+                        Nom du produit *
+                    </label>
+
+                    <input
+                        type="text"
+                        id="productName"
+                        required
+                    >
+                </div>
+
+
+                <div class="form-group">
+                    <label for="productReference">
+                        Référence
+                    </label>
+
+                    <input
+                        type="text"
+                        id="productReference"
+                    >
+                </div>
+
+
+                <div class="form-group">
+                    <label for="productCategory">
+                        Catégorie *
+                    </label>
+
+                    <select id="productCategory" required>
+                        <option value="">
+                            Sélectionner une catégorie
+                        </option>
+                    </select>
+                </div>
+
+
+                <div class="form-group">
+                    <label for="productPurchasePrice">
+                        Prix d'achat *
+                    </label>
+
+                    <input
+                        type="number"
+                        id="productPurchasePrice"
+                        min="0"
+                        required
+                    >
+                </div>
+
+
+                <div class="form-group">
+                    <label for="productSellingPrice">
+                        Prix de vente *
+                    </label>
+
+                    <input
+                        type="number"
+                        id="productSellingPrice"
+                        min="0"
+                        required
+                    >
+                </div>
+
+
+                <div class="form-group">
+                    <label for="productStock">
+                        Quantité en stock *
+                    </label>
+
+                    <input
+                        type="number"
+                        id="productStock"
+                        min="0"
+                        required
+                    >
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="productPhoto">
+                    Photo du produit
+                </label>
+
+                <input
+                    type="file"
+                    id="productPhoto"
+                    accept="image/*"
+                >
+
+                <small>
+                    La photo sera enregistrée dans Supabase Storage.
+                </small>
+
+            </div>
+
+
+            <div id="productPhotoPreview" class="photo-preview">
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="productDescription">
+                    Description
+                </label>
+
+                <textarea
+                    id="productDescription"
+                    rows="4"
+                    placeholder="Description du produit..."
+                ></textarea>
+
+            </div>
+
+
+            <p id="productFormMessage" class="form-message"></p>
+
+
+            <div class="form-actions">
+
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    data-close="productModal"
+                >
+                    Annuler
+                </button>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                >
+                    Enregistrer
+                </button>
+
+            </div>
+
+        </form>
+
+    </dialog>
+
+
+    <!-- =====================================================
+         MODALE CLIENT
+    ====================================================== -->
+
+    <dialog id="customerModal">
+
+        <form id="customerForm" class="modal-content">
+
+            <button
+                type="button"
+                class="modal-close"
+                data-close="customerModal"
+            >
+                ×
+            </button>
+
+            <div class="modal-header">
+                <p class="eyebrow">CLIENT</p>
+                <h2>Ajouter un client</h2>
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="customerName">
+                    Nom complet *
+                </label>
+
+                <input
+                    type="text"
+                    id="customerName"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label for="customerPhone">
+                        Téléphone
+                    </label>
+
+                    <input
+                        type="tel"
+                        id="customerPhone"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="customerAddress">
+                        Adresse
+                    </label>
+
+                    <input
+                        type="text"
+                        id="customerAddress"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="customerNotes">
+                    Notes
+                </label>
+
+                <textarea
+                    id="customerNotes"
+                    rows="3"
+                ></textarea>
+
+            </div>
+
+
+            <p id="customerFormMessage" class="form-message"></p>
+
+
+            <div class="form-actions">
+
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    data-close="customerModal"
+                >
+                    Annuler
+                </button>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                >
+                    Enregistrer
+                </button>
+
+            </div>
+
+        </form>
+
+    </dialog>
+
+    <!-- MODALE RÉSERVATION -->
+
+    <!-- ===================================================== -->
+<!-- MODALE AJOUT PERSONNEL -->
+<!-- ===================================================== -->
+
+<dialog id="staffModal">
+    <form id="staffForm" class="modal-content">
+
+        <button
+            type="button"
+            class="modal-close"
+            data-close="staffModal"
+        >
+            ×
+        </button>
+
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">ÉQUIPE</p>
+                <h2>Ajouter un personnel</h2>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="staffFullName">Nom complet</label>
+            <input
+                type="text"
+                id="staffFullName"
+                name="full_name"
+                placeholder="Ex. Fatou Ndiaye"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="staffEmail">Adresse e-mail</label>
+            <input
+                type="email"
+                id="staffEmail"
+                name="email"
+                placeholder="Ex. fatou@email.com"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="staffPassword">Mot de passe temporaire</label>
+            <input
+                type="password"
+                id="staffPassword"
+                name="password"
+                placeholder="Mot de passe"
+                minlength="6"
+                required
+            >
+        </div>
+
+        <div class="form-actions">
+            <button
+                type="button"
+                class="btn-secondary"
+                data-close="staffModal"
+            >
+                Annuler
+            </button>
+
+            <button
+                type="submit"
+                class="btn-primary"
+            >
+                Créer le personnel
+            </button>
+        </div>
+
+    </form>
+</dialog>
+
+    <!-- =====================================================
+         MODALE RÉSERVATION
+    ====================================================== -->
+
+    <dialog id="reservationModal">
+
+        <form id="reservationForm" class="modal-content">
+
+            <button
+                type="button"
+                class="modal-close"
+                data-close="reservationModal"
+            >
+                ×
+            </button>
+
+            <div class="modal-header">
+
+                <p class="eyebrow">PAIEMENT</p>
+
+                <h2>
+                    Nouvelle réservation
+                </h2>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="reservationCustomer">
+                    Client *
+                </label>
+
+                <select
+                    id="reservationCustomer"
+                    required
+                >
+                    <option value="">
+                        Sélectionner un client
+                    </option>
+                </select>
+
+            </div>
+
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label for="reservationProduct">
+                        Produit *
+                    </label>
+
+                    <select
+                        id="reservationProduct"
+                        required
+                    >
+                        <option value="">
+                            Sélectionner un produit
+                        </option>
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="reservationQuantity">
+                        Quantité *
+                    </label>
+
+                    <input
+                        type="number"
+                        id="reservationQuantity"
+                        min="1"
+                        value="1"
+                        required
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="reservationAdvance">
+                    Première avance
+                </label>
+
+                <input
+                    type="number"
+                    id="reservationAdvance"
+                    min="0"
+                    value="0"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="reservationNote">
+                    Note
+                </label>
+
+                <textarea
+                    id="reservationNote"
+                    rows="3"
+                    placeholder="Ex : paiement prévu vendredi..."
+                ></textarea>
+
+            </div>
+
+
+            <div class="reservation-total">
+
+                <div>
+                    <span>Total</span>
+                    <strong id="reservationTotal">
+                        0 F
+                    </strong>
+                </div>
+
+                <div>
+                    <span>Reste</span>
+                    <strong id="reservationRemaining">
+                        0 F
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <p
+                id="reservationFormMessage"
+                class="form-message"
+            ></p>
+
+
+            <div class="form-actions">
+
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    data-close="reservationModal"
+                >
+                    Annuler
+                </button>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                >
+                    Enregistrer
+                </button>
+
+            </div>
+
+        </form>
+
+    </dialog>
+
+
+    <!-- =====================================================
+         MODALE AJOUT DE PAIEMENT
+    ====================================================== -->
+
+    <dialog id="paymentModal">
+
+        <form id="paymentForm" class="modal-content">
+
+            <button
+                type="button"
+                class="modal-close"
+                data-close="paymentModal"
+            >
+                ×
+            </button>
+
+            <div class="modal-header">
+
+                <p class="eyebrow">VERSEMENT</p>
+
+                <h2>
+                    Ajouter un paiement
+                </h2>
+
+            </div>
+
+
+            <input
+                type="hidden"
+                id="paymentReservationId"
+            >
+
+
+            <div id="paymentReservationInfo" class="payment-info">
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="paymentAmount">
+                    Montant du versement *
+                </label>
+
+                <input
+                    type="number"
+                    id="paymentAmount"
+                    min="1"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="paymentNote">
+                    Note
+                </label>
+
+                <textarea
+                    id="paymentNote"
+                    rows="3"
+                ></textarea>
+
+            </div>
+
+
+            <p
+                id="paymentFormMessage"
+                class="form-message"
+            ></p>
+
+
+            <div class="form-actions">
+
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    data-close="paymentModal"
+                >
+                    Annuler
+                </button>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                >
+                    Enregistrer le paiement
+                </button>
+
+            </div>
+
+        </form>
+
+    </dialog>
+
+
+    <!-- =====================================================
+         NOTIFICATION
+    ====================================================== -->
+
+    <div id="toast" class="toast">
+        <span id="toastMessage"></span>
+    </div>
+
+
+    <!-- =====================================================
+         SUPABASE
+    ====================================================== -->
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Notre JavaScript -->
+    <script src="script.js"></script>
+
+</body>
+</html>
