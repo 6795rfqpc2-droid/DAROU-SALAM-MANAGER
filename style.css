@@ -653,7 +653,7 @@ textarea {
 .product-photo img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .no-photo {
@@ -1157,4 +1157,73 @@ dialog::backdrop {
     .form-actions button {
         width: 100%;
     }
+}
+
+.product-card-image {
+    height: 240px;
+    background: #f7eef2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.product-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+/* Boutique active et rapports */
+.shop-selector { display: grid; gap: 5px; min-width: 220px; }
+.shop-selector label { font-size: 12px; font-weight: 600; }
+.shop-selector select { padding: 10px; border: 1px solid #d7dcd9; border-radius: 8px; background: white; max-width: 100%; }
+.shop-context { padding: 12px 30px 0; font-size: 13px; font-weight: 600; color: var(--primary-dark); }
+.shop-overview { margin-bottom: 28px; padding: 24px; background: #fff; border: 1px solid #e1e9e4; border-radius: 16px; }
+.shop-metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(175px,1fr)); gap: 14px; margin: 20px 0; }
+.shop-metric { padding: 18px; border-radius: 12px; background: #f3f7f4; display: grid; gap: 8px; }
+.shop-metric span { font-size: 13px; color: #53675b; }
+.shop-metric strong { font-size: 22px; color: #193e29; }
+.shop-comparison { margin: 18px 0; }
+.shop-comparison > div:first-child { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
+.shop-bar { height: 12px; border-radius: 8px; background: #eef2ef; overflow: hidden; }
+.shop-bar span { display: block; height: 100%; background: #398c5f; min-width: 0; }
+.shop-note { color: #5b6860; font-size: 13px; line-height: 1.7; margin-top: 20px; }
+.shop-report-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 20px 0; }
+.shop-report-actions input { padding: 10px; border: 1px solid #cdd9d0; border-radius: 8px; }
+.shop-staff { display: grid; gap: 12px; margin: 16px 0; }
+.shop-staff fieldset { padding: 12px; border: 1px solid #d4ded7; border-radius: 8px; }
+.shop-staff label { display: block; margin: 8px 0; }
+.shop-staff input[type=checkbox] { width: auto; }
+#invoiceModal { max-width: 650px; width: 90vw; padding: 28px; border: 1px solid #d4ded7; border-radius: 14px; }
+#invoiceContent p { margin: 12px 0; overflow-wrap: anywhere; }
+#shopPrintArea { display: none; }
+.statistics-chart-card { margin: 24px 0; }
+.statistics-chart-card .card-header { flex-wrap: wrap; gap: 16px; }
+.statistics-chart-card label { display: block; font-size: 13px; margin-bottom: 6px; }
+.statistics-chart-card input { padding: 8px; border: 1px solid var(--border); border-radius: 8px; }
+.statistics-chart { overflow-x: auto; }
+.statistics-chart svg { display: block; width: 100%; min-width: 600px; }
+.statistics-chart svg text { fill: #60515b; font-family: Inter,Arial,sans-serif; font-size: 12px; }
+#shopLoadStatus { padding: 16px; background: #fff5d8; border-radius: 10px; }
+.global-shops [data-page="sales"], .global-shops [data-page="products"], .global-shops [data-page="customers"],
+.global-shops [data-page="payments"], .global-shops [data-page="stock"], .global-shops [data-page="history"],
+.global-shops [data-page="settings"] { display: none; }
+.global-shops #dashboardPage > :not(#shopOverview) { display: none; }
+#dashboardPage > .stats-grid:not(.secondary-stats) { display: none; }
+@media(max-width: 700px) {
+ .top-header { flex-wrap: wrap; gap: 12px; height: auto; min-height: 70px; padding: 12px 18px; }
+ .header-actions { flex-wrap: wrap; width: 100%; }
+ .shop-selector { min-width: 0; flex: 1; }
+ .shop-context { padding: 12px 18px 0; }
+ .shop-overview { padding: 16px; }
+ .shop-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+ .shop-metric { padding: 12px; }
+ .shop-metric strong { font-size: 18px; overflow-wrap: anywhere; }
+}
+@media print {
+ body > * { display: none !important; }
+ #shopPrintArea { display: block !important; color: black; font-family: Arial,sans-serif; padding: 20px; }
+ #shopPrintArea h1 { font-size: 22px; }
+ #shopPrintArea p { margin: 12px 0; }
+ dialog { display: none !important; }
 }

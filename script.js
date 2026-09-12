@@ -7,9 +7,9 @@
    1. CONFIGURATION SUPABASE
    ========================================================= */
 
-const SUPABASE_URL = "https://ueeflmoeyhmbpwvedbuu.supabase.co";
-const SUPABASE_KEY = "sb_publishable_EIFZa7Ai8EMb0TggNLpeEA_AoM591tK";
+const SUPABASE_URL = "https://uofuxxzloqweiykhemlj.supabase.co";
 
+const SUPABASE_KEY = "sb_publishable_8AA7PRgjecoB1C5my7k9RQ_iSvr3B6n";
 let supabaseClient = null;
 
 if (
@@ -144,6 +144,69 @@ function statusLabel(status) {
 }
 
 
+/* ---------------------------------------------------------
+   Compatibilité avec les noms de colonnes Supabase actuels
+   --------------------------------------------------------- */
+function normalizeProductRow(row = {}) {
+    return {
+        ...row,
+        name: row.name ?? row.nom_modele ?? "",
+        category_id: row.category_id ?? row.categorie_id ?? null,
+        selling_price: row.selling_price ?? row.prix ?? 0,
+        purchase_price: row.purchase_price ?? null,
+        stock_quantity:
+            row.stock_quantity ?? row["stock_quantité"] ?? row.stock_quantite ?? 0,
+        reserved_quantity: row.reserved_quantity ?? 0,
+        photo_url: row.photo_url ?? row.photos_url ?? null,
+        photo_path: row.photo_path ?? null,
+        reference: row.reference ?? "",
+        categories: row.categories ?? null
+    };
+}
+
+function normalizeCustomerRow(row = {}) {
+    return {
+        ...row,
+        full_name: row.full_name ?? row.nom ?? "",
+        phone: row.phone ?? row.telephone ?? null,
+        address: row.address ?? row.adresse ?? null,
+        notes: row.notes ?? null
+    };
+}
+
+function normalizeSaleRow(row = {}) {
+    const productId = row.product_id ?? row.produit_id ?? null;
+    const customerId = row.customer_id ?? row.client_id ?? null;
+    const quantity = Number(row.quantity ?? row.quantite ?? 0);
+    const unitPrice = Number(
+        row.unit_price ?? row.prix_unitaire ?? row.prix ?? 0
+    );
+
+    return {
+        ...row,
+        product_id: productId,
+        customer_id: customerId,
+        quantity,
+        unit_price: unitPrice,
+        total_amount: Number(
+            row.total_amount ??
+            row.montant_total ??
+            row.total ??
+            quantity * unitPrice
+        ),
+        sold_at: row.sold_at ?? row.created_at ?? row.date_vente ?? null,
+        products:
+            row.products ??
+            products.find(item => String(item.id) === String(productId)) ??
+            null,
+        customers:
+            row.customers ??
+            customers.find(item => String(item.id) === String(customerId)) ??
+            null
+    };
+}
+
+
 function showToast(message) {
     const toast = $("#toast");
     const toastMessage = $("#toastMessage");
@@ -209,45 +272,7 @@ function friendlyError(error) {
    ========================================================= */
 
 async function loadStaffList() {
-    const staffList = document.getElementById("staffList");
-
-    if (!staffList || !isAdmin()) return;
-
-    const { data, error } = await supabaseClient
-        .from("profiles")
-        .select("id, full_name, role, active, created_at")
-        .eq("role", "personnel")
-        .order("created_at", { ascending: false });
-
-    if (error) {
-        console.error(error);
-        staffList.innerHTML = "<p>Impossible de charger le personnel.</p>";
-        return;
-    }
-
-    if (!data || data.length === 0) {
-        staffList.innerHTML = "<p>Aucun personnel enregistré.</p>";
-        return;
-    }
-
-    staffList.innerHTML = data.map(person => `
-    <div class="staff-item">
-        <div>
-            <strong>${person.full_name || "Sans nom"}</strong>
-            <span>
-                ${person.active ? "🟢 Actif" : "🔴 Désactivé"}
-            </span>
-        </div>
-
-        <button
-            type="button"
-            class="btn-secondary"
-            onclick="toggleStaffStatus('${person.id}', ${person.active})"
-        >
-            ${person.active ? "Désactiver" : "Réactiver"}
-        </button>
-    </div>
-`).join("");
+    return renderStaffAccess();
 }
 
 async function initializeApp() {
@@ -365,6 +390,8 @@ async function startApplication(user) {
 
         await loadProfile();
 
+        await initializeShops();
+
         showApplication();
 
         updateUserInterface();
@@ -416,7 +443,7 @@ function updateUserInterface() {
 
         if (element) {
             element.textContent =
-                currentProfile?.full_name ||
+                currentProfile?.nom_complet ||
                 currentUser?.email ||
                 "Utilisateur";
         }
@@ -485,10 +512,9 @@ function updateUserInterface() {
 
 async function loadCategories() {
 
-    const { data, error } = await supabaseClient
-        .from("categories")
+    const { data, error } = await shopTable("categories")
         .select("*")
-        .order("name", { ascending: true });
+        .order("nom", { ascending: true });
 
     if (error) throw error;
 
@@ -522,7 +548,7 @@ function renderCategories() {
 
         return `
             <div class="category-item">
-                <span>${escapeHtml(category.name)}</span>
+                <span>${escapeHtml(category.nom)}</span>
 
                 ${
                     isAdmin()
@@ -532,7 +558,7 @@ function renderCategories() {
                                 class="btn-small danger"
                                 data-action="delete-category"
                                 data-id="${category.id}"
-                                data-name="${escapeHtml(category.name)}"
+                                data-name="${escapeHtml(category.nom)}"
                             >
                                 Supprimer
                             </button>
@@ -560,7 +586,7 @@ function populateCategorySelects() {
 
             ${categories.map(category => `
                 <option value="${category.id}">
-                    ${escapeHtml(category.name)}
+                    ${escapeHtml(category.nom)}
                 </option>
             `).join("")}
         `;
@@ -578,7 +604,7 @@ function populateCategorySelects() {
 
             ${categories.map(category => `
                 <option value="${category.id}">
-                    ${escapeHtml(category.name)}
+                    ${escapeHtml(category.nom)}
                 </option>
             `).join("")}
         `;
@@ -595,22 +621,21 @@ async function addCategory() {
         return;
     }
 
-    const input = $("#newCategoryName");
+    const input = $("#newCategoryNom");
 
     if (!input) return;
 
-    const name = input.value.trim();
+    const nom = input.value.trim();
 
-    if (!name) {
+    if (!nom) {
         showToast("Entre le nom de la catégorie.");
         return;
     }
 
 
-    const { data, error } = await supabaseClient
-        .from("categories")
+    const { data, error } = await shopTable("categories")
         .insert({
-            name
+            nom
         })
         .select()
         .single();
@@ -627,7 +652,7 @@ async function addCategory() {
         "categories",
         data.id,
         {
-            name: data.name
+            name: data.nom
         }
     );
 
@@ -651,8 +676,7 @@ async function deleteCategory(id, name) {
     if (!confirmed) return;
 
 
-    const { error } = await supabaseClient
-        .from("categories")
+    const { error } = await shopTable("categories")
         .delete()
         .eq("id", id);
 
@@ -688,13 +712,12 @@ async function deleteCategory(id, name) {
 
 async function loadProducts() {
 
-    const { data, error } = await supabaseClient
-        .from("products")
+    const { data, error } = await shopTable("produits")
         .select(`
             *,
             categories (
                 id,
-                name
+                nom
             )
         `)
         .order("created_at", {
@@ -703,7 +726,7 @@ async function loadProducts() {
 
     if (error) throw error;
 
-    products = data || [];
+    products = (data || []).map(normalizeProductRow);
 
     renderProducts();
     populateProductSelects();
@@ -712,6 +735,69 @@ async function loadProducts() {
     renderStatistics();
 }
 
+async function deleteSale(id) {
+
+    if (!isAdmin()) {
+        showToast("Seule l'administratrice peut annuler une vente.");
+        return;
+    }
+
+    const sale = sales.find(
+        item => String(item.id) === String(id)
+    );
+
+    if (!sale) {
+        showToast("Vente introuvable.");
+        return;
+    }
+
+    const productName =
+        sale.products?.name || "ce produit";
+
+    if (!confirm(
+        `Annuler la vente de "${productName}" ?\n\nLe stock sera restauré et la facture conservée.`
+    )) {
+        return;
+    }
+
+    const { error } =
+        await shopRpc(
+            "supprimer_vente_admin",
+            {
+                p_vente_id: id
+            }
+        );
+
+    if (error) {
+        console.error(
+            "Erreur suppression vente :",
+            error
+        );
+
+        showToast(
+            "Impossible d’annuler cette vente."
+        );
+
+        return;
+    }
+
+    await writeAudit(
+        "delete",
+        "ventes",
+        id,
+        {
+            produit: productName,
+            quantite: sale.quantity,
+            montant: sale.total_amount
+        }
+    );
+
+    await refreshAll();
+
+    showToast(
+        "Vente annulée, facture conservée et stock restauré."
+    );
+}
 
 function renderProducts() {
 
@@ -736,7 +822,7 @@ function renderProducts() {
             !search ||
             normalizeText(product.name).includes(search) ||
             normalizeText(product.reference).includes(search) ||
-            normalizeText(product.categories?.name).includes(search);
+            normalizeText(product.categories?.nom).includes(search);
 
 
         const matchesCategory =
@@ -839,7 +925,7 @@ function renderProducts() {
 
                     <p class="product-category">
                         ${escapeHtml(
-                            product.categories?.name ||
+                            product.categories?.nom ||
                             "Sans catégorie"
                         )}
                     </p>
@@ -862,7 +948,7 @@ function renderProducts() {
                         <div>
                             <small>Achat</small>
                             <strong>
-                                ${formatMoney(product.purchase_price)}
+                                ${product.purchase_price == null ? "Non renseigné" : formatMoney(product.purchase_price)}
                             </strong>
                         </div>
 
@@ -1061,9 +1147,10 @@ async function uploadProductPhoto(file) {
 
     if (!file) return null;
 
-    if (!file.type.startsWith("image/")) {
+    const extensions = {"image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/gif":"gif"};
+    if (!extensions[file.type]) {
         throw new Error(
-            "Le fichier sélectionné doit être une image."
+            "Choisissez une photo JPG, PNG, WebP ou GIF."
         );
     }
 
@@ -1075,8 +1162,7 @@ async function uploadProductPhoto(file) {
     }
 
 
-    const extension =
-        file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const extension = extensions[file.type];
 
 
     const uniqueId =
@@ -1088,7 +1174,7 @@ async function uploadProductPhoto(file) {
 
 
     const path =
-        `${currentUser.id}/${uniqueId}.${extension}`;
+        `${requireSelectedShop()}/${currentUser.id}/${uniqueId}.${extension}`;
 
 
     const { error } =
@@ -1107,15 +1193,9 @@ async function uploadProductPhoto(file) {
     if (error) throw error;
 
 
-    const { data } =
-        supabaseClient.storage
-            .from("product-photos")
-            .getPublicUrl(path);
-
-
     return {
         path,
-        url: data.publicUrl
+        url: null // Les liens temporaires sont générés à la lecture, jamais enregistrés.
     };
 }
 
@@ -1234,16 +1314,17 @@ async function saveProduct(event) {
         }
 
 
+        // Colonnes réelles de public.produits dans ce projet Supabase
         const payload = {
-            name,
-            reference,
-            category_id: categoryId,
-            purchase_price: purchasePrice,
-            selling_price: sellingPrice,
-            stock_quantity: stock,
+            nom_modele: name,
+            categorie_id: categoryId,
+            prix: sellingPrice,
+            stock_quantite: stock,
             description,
             photo_url: photoUrl,
             photo_path: photoPath,
+            reference,
+            purchase_price: $("#productPurchasePrice")?.value.trim() === "" ? null : purchasePrice,
             updated_at: new Date().toISOString()
         };
 
@@ -1254,8 +1335,7 @@ async function saveProduct(event) {
         if (id) {
 
             const { data, error } =
-                await supabaseClient
-                    .from("products")
+                await shopTable("produits")
                     .update(payload)
                     .eq("id", id)
                     .select()
@@ -1264,7 +1344,7 @@ async function saveProduct(event) {
 
             if (error) throw error;
 
-            savedProduct = data;
+            savedProduct = normalizeProductRow(data);
 
 
             await writeAudit(
@@ -1282,16 +1362,15 @@ async function saveProduct(event) {
         } else {
 
             const { data, error } =
-                await supabaseClient
-                    .from("products")
-                    .insert(payload)
+                await shopTable("produits")
+                    .insert({ ...payload, created_by: currentUser?.id || null })
                     .select()
                     .single();
 
 
             if (error) throw error;
 
-            savedProduct = data;
+            savedProduct = normalizeProductRow(data);
 
 
             await writeAudit(
@@ -1350,8 +1429,7 @@ async function deleteProduct(id) {
 
 
     const { error } =
-        await supabaseClient
-            .from("products")
+        await shopTable("produits")
             .delete()
             .eq("id", id);
 
@@ -1424,7 +1502,7 @@ async function restockProduct(id) {
 
 
     const { error } =
-        await supabaseClient.rpc(
+        await shopRpc(
             "restock_product",
             {
                 p_product_id: id,
@@ -1467,8 +1545,7 @@ async function restockProduct(id) {
 async function loadCustomers() {
 
     const { data, error } =
-        await supabaseClient
-            .from("customers")
+        await shopTable("customers")
             .select("*")
             .order("created_at", {
                 ascending: false
@@ -1477,7 +1554,7 @@ async function loadCustomers() {
 
     if (error) throw error;
 
-    customers = data || [];
+    customers = (data || []).map(normalizeCustomerRow);
 
     renderCustomers();
 
@@ -1622,12 +1699,11 @@ async function saveCustomer(event) {
 
 
     const { data, error } =
-        await supabaseClient
-            .from("customers")
+        await shopTable("customers")
             .insert({
-                full_name: fullName,
-                phone,
-                address,
+                nom: fullName,
+                telephone: phone,
+                adresse: address,
                 notes
             })
             .select()
@@ -1689,8 +1765,7 @@ async function deleteCustomer(id) {
 
 
     const { error } =
-        await supabaseClient
-            .from("customers")
+        await shopTable("customers")
             .delete()
             .eq("id", id);
 
@@ -1853,57 +1928,32 @@ function populateProductSelects() {
 async function loadSales() {
 
     const { data, error } =
-        await supabaseClient
-            .from("sales")
-            .select(`
-                *,
-                products (
-                    id,
-                    name,
-                    reference,
-                    purchase_price,
-                    selling_price
-                ),
-                customers (
-                    id,
-                    full_name
-                )
-            `)
-            .order("sold_at", {
-                ascending: false
-            });
+        await shopTable("ventes")
+            .select("*");
 
 
     if (error) throw error;
 
-    sales = data || [];
+    sales = (data || []).map(normalizeSaleRow);
 
     renderSalesHistory();
     renderDashboard();
     renderStatistics();
 }
 
-
 function updateSaleTotal() {
+    const productId = $("#saleProduct")?.value;
 
-    const productId =
-        $("#saleProduct")?.value;
+    const quantity = Number.parseInt(
+        $("#saleQuantity")?.value || "0",
+        10
+    );
 
-    const quantity =
-        Number.parseInt(
-            $("#saleQuantity")?.value || "0",
-            10
-        );
-
-
-    const product =
-        products.find(
-            item => String(item.id) === String(productId)
-        );
-
+    const product = products.find(
+        item => String(item.id) === String(productId)
+    );
 
     if (!product) {
-
         if ($("#saleUnitPrice")) {
             $("#saleUnitPrice").value = "";
         }
@@ -1915,42 +1965,34 @@ function updateSaleTotal() {
         return;
     }
 
-
-    const available =
-        getAvailableStock(product);
-
+    const available = getAvailableStock(product);
 
     if (quantity > available) {
-
-        $("#saleQuantity").value =
-            available;
+        $("#saleQuantity").value = available;
     }
 
+    const finalQuantity = Number.parseInt(
+        $("#saleQuantity").value || "0",
+        10
+    );
 
-    const finalQuantity =
-        Number.parseInt(
-            $("#saleQuantity").value || "0",
-            10
-        );
+    let unitPrice = Number(
+        $("#saleUnitPrice")?.value || 0
+    );
 
+    if (!unitPrice) {
+        unitPrice = Number(product.selling_price || 0);
+        $("#saleUnitPrice").value = unitPrice;
+    }
 
-    const unitPrice =
-        Number(product.selling_price || 0);
+    const total = unitPrice * finalQuantity;
 
-    const total =
-        unitPrice * finalQuantity;
+    $("#saleTotal").value = formatMoney(total);
 
-
-    $("#saleUnitPrice").value =
-        unitPrice;
-
-    $("#saleTotal").value =
-        formatMoney(total);
-
-
-    $("#saleQuantity").max =
-        available;
+    $("#saleQuantity").max = available;
 }
+
+
 
 
 async function saveSale(event) {
@@ -2014,20 +2056,27 @@ async function saveSale(event) {
         return;
     }
 
+const unitPrice =
+    Number($("#saleUnitPrice").value || 0);
 
-    const unitPrice =
-        Number(product.selling_price || 0);
+if (unitPrice <= 0) {
+    showToast("Prix de vente invalide.");
+    return;
+}
+
+const total =
+    unitPrice * quantity;
 
 
-    const total =
-        unitPrice * quantity;
+
+
 
 
     const { data, error } =
-        await supabaseClient.rpc(
+        await shopRpc(
             "create_sale",
             {
-                p_product_id: Number(productId),
+                p_product_id: productId,
                 p_customer_id:
                     customerId
                         ? Number(customerId)
@@ -2082,8 +2131,7 @@ async function saveSale(event) {
 async function loadReservations() {
 
     const { data, error } =
-        await supabaseClient
-            .from("reservations")
+        await shopTable("reservations")
             .select(`
                 *,
                 customers (
@@ -2103,7 +2151,17 @@ async function loadReservations() {
             });
 
 
-    if (error) throw error;
+    if (error) {
+        // Les réservations sont optionnelles tant que la table n'est pas installée.
+        if (error.code === "PGRST205" || /reservations/i.test(error.message || "")) {
+            console.warn("Module réservations non disponible :", error.message);
+            reservations = [];
+            renderPayments();
+            renderDashboard();
+            return;
+        }
+        throw error;
+    }
 
     reservations = data || [];
 
@@ -2333,11 +2391,11 @@ async function saveReservation(event) {
 
 
     const { data, error } =
-        await supabaseClient.rpc(
+        await shopRpc(
             "create_reservation",
             {
                 p_customer_id: Number(customerId),
-                p_product_id: Number(productId),
+                p_product_id: productId,
                 p_quantity: quantity,
                 p_advance: advance,
                 p_note: note
@@ -2714,7 +2772,7 @@ async function savePayment(event) {
 
 
     const { data, error } =
-        await supabaseClient.rpc(
+        await shopRpc(
             "add_payment",
             {
                 p_reservation_id: reservationId,
@@ -2780,7 +2838,7 @@ async function markReservationRemis(id) {
 
 
     const { error } =
-        await supabaseClient.rpc(
+        await shopRpc(
             "mark_reservation_remis",
             {
                 p_reservation_id: Number(id)
@@ -2847,7 +2905,7 @@ async function cancelReservation(id) {
 
 
     const { error } =
-        await supabaseClient.rpc(
+        await shopRpc(
             "cancel_reservation",
             {
                 p_reservation_id: Number(id)
@@ -2954,54 +3012,70 @@ function renderSalesHistory() {
         empty.style.display = "none";
     }
 
+tbody.innerHTML =
+    filtered.map(sale => {
 
-    tbody.innerHTML =
-        filtered.map(sale => {
+        return `
+            <tr>
 
-            return `
-                <tr>
+                <td>
+                    ${formatDate(sale.sold_at)}
+                </td>
 
-                    <td>
-                        ${formatDate(sale.sold_at)}
-                    </td>
+                <td>
+                    ${escapeHtml(
+                        sale.products?.name || "-"
+                    )}
+                </td>
 
-                    <td>
-                        ${escapeHtml(
-                            sale.products?.name || "-"
-                        )}
-                    </td>
+                <td>
+                    ${escapeHtml(
+                        sale.customers?.full_name ||
+                        "Client comptant"
+                    )}
+                </td>
 
-                    <td>
-                        ${escapeHtml(
-                            sale.customers?.full_name ||
-                            "Client comptant"
-                        )}
-                    </td>
+                <td>
+                    ${formatNumber(
+                        sale.quantity
+                    )}
+                </td>
 
-                    <td>
-                        ${formatNumber(
-                            sale.quantity
-                        )}
-                    </td>
+                <td>
+                    ${formatMoney(
+                        sale.unit_price
+                    )}
+                </td>
 
-                    <td>
+                <td>
+                    <strong>
                         ${formatMoney(
-                            sale.unit_price
+                            sale.total_amount
                         )}
-                    </td>
+                    </strong>
+                </td>
 
-                    <td>
-                        <strong>
-                            ${formatMoney(
-                                sale.total_amount
-                            )}
-                        </strong>
-                    </td>
+                <td>
+                    ${
+                        isAdmin()
+                            ? `
+                                <button
+                                    type="button"
+                                    class="btn-danger"
+                                    onclick="deleteSale('${sale.id}')"
+                                >
+                                    Annuler la vente
+                                </button>
+                              `
+                            : ""
+                    }
+                </td>
 
-                </tr>
-            `;
+            </tr>
+        `;
 
-        }).join("");
+    }).join("");
+
 }
 
 
@@ -3087,7 +3161,7 @@ function renderStock() {
 
                     <td>
                         ${escapeHtml(
-                            product.categories?.name ||
+                            product.categories?.nom ||
                             "-"
                         )}
                     </td>
@@ -3555,8 +3629,7 @@ async function loadAuditLogs() {
 
 
     const { data, error } =
-        await supabaseClient
-            .from("audit_logs")
+        await shopTable("audit_logs")
             .select("*")
             .order("created_at", {
                 ascending: false
@@ -3594,13 +3667,13 @@ async function loadAuditLogs() {
         const { data: profiles } =
             await supabaseClient
                 .from("profiles")
-                .select("id, full_name, role")
+                .select("id, nom_complet, role")
                 .in("id", userIds);
 
 
         (profiles || []).forEach(profile => {
             profileMap[profile.id] =
-                profile.full_name ||
+                profile.nom_complet ||
                 "Utilisateur";
         });
 
@@ -3674,15 +3747,14 @@ async function writeAudit(
     try {
 
         const { error } =
-            await supabaseClient
-                .from("audit_logs")
+            await shopTable("audit_logs")
                 .insert({
                     user_id: currentUser.id,
                     action,
                     table_name: tableName,
                     record_id:
                         recordId
-                            ? Number(recordId)
+                            ? String(recordId)
                             : null,
                     details
                 });
@@ -3727,7 +3799,7 @@ function showPage(pageName) {
     });
 
 
-    
+
 
 
     if (target) {
@@ -3762,6 +3834,7 @@ function showPage(pageName) {
 
     if (pageName === "staff") {
         loadAuditLogs();
+        loadStaffList();
     }
 
 
@@ -3780,13 +3853,12 @@ async function refreshAll() {
 
     try {
 
-        await Promise.all([
-            loadCategories(),
-            loadProducts(),
-            loadCustomers(),
-            loadSales(),
-            loadReservations()
-        ]);
+        // Chargement séquentiel : les ventes utilisent les produits et clients déjà chargés.
+        await loadCategories();
+        await loadProducts();
+        await loadCustomers();
+        await loadSales();
+        await loadReservations();
 
 
         renderDashboard();
@@ -4104,7 +4176,20 @@ document.addEventListener(
 
         $("#saleProduct")?.addEventListener(
             "change",
-            updateSaleTotal
+            () => {
+                const productId = $("#saleProduct")?.value;
+                const product = products.find(
+                    item => String(item.id) === String(productId)
+                );
+
+                if ($("#saleUnitPrice")) {
+                    $("#saleUnitPrice").value = product
+                        ? Number(product.selling_price || 0)
+                        : "";
+                }
+
+                updateSaleTotal();
+            }
         );
 
 
@@ -4112,7 +4197,10 @@ document.addEventListener(
             "input",
             updateSaleTotal
         );
-
+$("#saleUnitPrice")?.addEventListener(
+    "input",
+    updateSaleTotal
+);
 
         $("#saleForm")?.addEventListener(
             "submit",
@@ -4382,7 +4470,7 @@ document.addEventListener("click", (event) => {
         closeDialog(`#${modalId}`);
     }
 });
-                
+
 document.getElementById("addStaffBtn")?.addEventListener("click", () => {
     const modal = document.getElementById("staffModal");
 
@@ -4417,7 +4505,7 @@ document.getElementById("staffForm")?.addEventListener("submit", async (event) =
 
     const { data: sessionData } = await supabaseClient.auth.getSession();
 
-console.log("SESSION AVANT CREATE-STAFF :", sessionData.session);
+
 
 const { data, error } = await supabaseClient.functions.invoke("create-staff", {
     body: {
@@ -4444,7 +4532,10 @@ const { data, error } = await supabaseClient.functions.invoke("create-staff", {
         return;
     }
 
-    showToast("Personnel créé avec succès !");
+    if (typeof data?.user_id !== "string" || !data.user_id.trim()) {
+        showToast("Création non confirmée : la fonction create-staff ne renvoie aucun compte créé. Remplacez son code d’exemple dans Supabase.");
+        return;
+    }
 
     document.getElementById("staffForm")?.reset();
 
@@ -4454,65 +4545,14 @@ const { data, error } = await supabaseClient.functions.invoke("create-staff", {
         modal.close();
     }
 
-    await loadStaffList();
+    const visible = await renderStaffAccess(data?.user_id);
+    showToast(visible
+        ? "Personnel créé. Choisissez ses boutiques puis enregistrez les accès."
+        : "Compte créé, mais liste non chargée correctement. Consultez le message dans Personnel. Ne recréez pas le compte.");
 });
 
 async function loadStaffList() {
-    const staffList = document.getElementById("staffList");
-
-    if (!staffList || !isAdmin()) return;
-
-    const { data, error } = await supabaseClient
-        .from("profiles")
-        .select("id, full_name, role, active, created_at")
-        .eq("role", "personnel")
-        .order("created_at", { ascending: false });
-
-    if (error) {
-    console.error("Erreur create-staff :", error);
-
-    let details = error.message || "Erreur inconnue";
-
-    try {
-        if (error.context) {
-            const responseText = await error.context.clone().text();
-
-            if (responseText) {
-                console.error("Réponse Edge Function :", responseText);
-                details = responseText;
-            }
-        }
-    } catch (e) {
-        console.error("Impossible de lire la réponse :", e);
-    }
-
-    showToast(details);
-    return;
-}
-
-    if (!data || data.length === 0) {
-        staffList.innerHTML = "<p>Aucun personnel enregistré.</p>";
-        return;
-    }
-
-    staffList.innerHTML = data.map(person => `
-    <div class="staff-item">
-        <div>
-            <strong>${person.full_name || "Sans nom"}</strong>
-            <span>
-                ${person.active ? "🟢 Actif" : "🔴 Désactivé"}
-            </span>
-        </div>
-
-        <button
-            type="button"
-            class="btn-secondary"
-            onclick="toggleStaffStatus('${person.id}', ${person.active})"
-        >
-            ${person.active ? "Désactiver" : "Réactiver"}
-        </button>
-    </div>
-`).join("");
+    return renderStaffAccess();
 }
 
  window.toggleStaffStatus = async function(staffId, currentStatus) {
@@ -4542,12 +4582,45 @@ async function loadStaffList() {
 
     await loadStaffList();
 }
-        /* ------------------------ 
+
+
+window.supprimerPersonnel = async function(staffId, staffName = "ce membre du personnel") {
+    if (!isAdmin()) {
+        showToast("Action réservée à l'administrateur.");
+        return;
+    }
+
+    if (String(staffId) === String(currentUser?.id)) {
+        showToast("Vous ne pouvez pas supprimer votre propre compte administrateur.");
+        return;
+    }
+
+    const confirmed = confirm(
+        `Supprimer définitivement ${staffName} ?\n\nSon compte de connexion sera également supprimé.`
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await shopRpc(
+        "supprimer_personnel_admin",
+        { p_user_id: staffId }
+    );
+
+    if (error) {
+        console.error("Erreur suppression personnel :", error);
+        showToast("Impossible de supprimer ce membre du personnel.");
+        return;
+    }
+
+    showToast("Personnel supprimé avec succès.");
+    await loadStaffList();
+};
+        /* ------------------------
            Initialisation
            ------------------------- */
 
 loadStaffList();
-            
+
            document.getElementById("editProfileName")?.addEventListener("click", async () => {
     if (!currentUser) {
         showToast("Vous devez être connecté.");
@@ -4568,19 +4641,22 @@ loadStaffList();
         return;
     }
 
-    const { error } = await supabaseClient
-        .from("profiles")
-        .update({ full_name: name })
-        .eq("id", currentUser.id);
+    const { error } = await shopRpc(
+        "modifier_mon_nom",
+        { p_nom_complet: name }
+    );
 
     if (error) {
-        console.error(error);
+        console.error("Erreur modification du nom :", error);
         showToast("Erreur lors de la modification du nom.");
         return;
     }
 
-    document.getElementById("profileName").textContent = name;
+    if (currentProfile) {
+        currentProfile.nom_complet = name;
+    }
 
+    updateUserInterface();
     showToast("Nom modifié avec succès !");
 });
 

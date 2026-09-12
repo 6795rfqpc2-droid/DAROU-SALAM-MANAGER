@@ -1,0 +1,733 @@
+{
+  "relations": [
+    {
+      "kind": "r",
+      "name": "categories",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "nom",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "photo_importante",
+          "type": "boolean",
+          "default": "false",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX categories_pkey ON public.categories USING btree (id)",
+        "CREATE UNIQUE INDEX categories_nom_key ON public.categories USING btree (nom)"
+      ],
+      "triggers": [],
+      "rls_forced": false,
+      "constraints": [
+        {
+          "name": "categories_nom_key",
+          "type": "u",
+          "definition": "UNIQUE (nom)"
+        },
+        {
+          "name": "categories_pkey",
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        }
+      ],
+      "rls_enabled": true,
+      "view_definition": null
+    },
+    {
+      "kind": "r",
+      "name": "customers",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "default": null,
+          "identity": "d",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "nom",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "telephone",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": ""
+        },
+        {
+          "name": "adresse",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": false,
+          "generated": ""
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX customers_pkey ON public.customers USING btree (id)"
+      ],
+      "triggers": [],
+      "rls_forced": false,
+      "constraints": [
+        {
+          "name": "customers_pkey",
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        }
+      ],
+      "rls_enabled": true,
+      "view_definition": null
+    },
+    {
+      "kind": "r",
+      "name": "produits",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "categorie_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "nom_modele",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": ""
+        },
+        {
+          "name": "photo_url",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": ""
+        },
+        {
+          "name": "prix",
+          "type": "numeric(10,2)",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "stock_quantite",
+          "type": "integer",
+          "default": "0",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "actif",
+          "type": "boolean",
+          "default": "true",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "created_by",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": false,
+          "generated": ""
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX produits_pkey ON public.produits USING btree (id)"
+      ],
+      "triggers": [
+        "CREATE TRIGGER trg_produits_updated_at BEFORE UPDATE ON produits FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+      ],
+      "rls_forced": false,
+      "constraints": [
+        {
+          "name": "produits_categorie_id_fkey",
+          "type": "f",
+          "definition": "FOREIGN KEY (categorie_id) REFERENCES categories(id) ON DELETE RESTRICT"
+        },
+        {
+          "name": "produits_created_by_fkey",
+          "type": "f",
+          "definition": "FOREIGN KEY (created_by) REFERENCES profiles(id)"
+        },
+        {
+          "name": "produits_pkey",
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "produits_prix_check",
+          "type": "c",
+          "definition": "CHECK (prix >= 0::numeric)"
+        },
+        {
+          "name": "produits_stock_quantite_check",
+          "type": "c",
+          "definition": "CHECK (stock_quantite >= 0)"
+        }
+      ],
+      "rls_enabled": true,
+      "view_definition": null
+    },
+    {
+      "kind": "r",
+      "name": "profiles",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "nom_complet",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "role",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "default": "true",
+          "identity": "",
+          "not_null": false,
+          "generated": ""
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)"
+      ],
+      "triggers": [],
+      "rls_forced": false,
+      "constraints": [
+        {
+          "name": "profiles_id_fkey",
+          "type": "f",
+          "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "profiles_pkey",
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "profiles_role_check",
+          "type": "c",
+          "definition": "CHECK (role = ANY (ARRAY['admin'::text, 'vendeuse'::text]))"
+        }
+      ],
+      "rls_enabled": true,
+      "view_definition": null
+    },
+    {
+      "kind": "r",
+      "name": "ventes",
+      "schema": "public",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "default": "uuid_generate_v4()",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "produit_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "quantite",
+          "type": "integer",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "prix_unitaire",
+          "type": "numeric(10,2)",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "montant_total",
+          "type": "numeric(10,2)",
+          "default": "((quantite)::numeric * prix_unitaire)",
+          "identity": "",
+          "not_null": false,
+          "generated": "s"
+        },
+        {
+          "name": "mode_paiement",
+          "type": "text",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "vendeuse_id",
+          "type": "uuid",
+          "default": null,
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        },
+        {
+          "name": "date_vente",
+          "type": "timestamp with time zone",
+          "default": "now()",
+          "identity": "",
+          "not_null": true,
+          "generated": ""
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX ventes_pkey ON public.ventes USING btree (id)"
+      ],
+      "triggers": [
+        "CREATE TRIGGER trg_deduire_stock AFTER INSERT ON ventes FOR EACH ROW EXECUTE FUNCTION deduire_stock_apres_vente()"
+      ],
+      "rls_forced": false,
+      "constraints": [
+        {
+          "name": "ventes_mode_paiement_check",
+          "type": "c",
+          "definition": "CHECK (mode_paiement = ANY (ARRAY['especes'::text, 'wave'::text, 'orange_money'::text, 'autre'::text]))"
+        },
+        {
+          "name": "ventes_pkey",
+          "type": "p",
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "ventes_prix_unitaire_check",
+          "type": "c",
+          "definition": "CHECK (prix_unitaire >= 0::numeric)"
+        },
+        {
+          "name": "ventes_produit_id_fkey",
+          "type": "f",
+          "definition": "FOREIGN KEY (produit_id) REFERENCES produits(id) ON DELETE RESTRICT"
+        },
+        {
+          "name": "ventes_quantite_check",
+          "type": "c",
+          "definition": "CHECK (quantite > 0)"
+        },
+        {
+          "name": "ventes_vendeuse_id_fkey",
+          "type": "f",
+          "definition": "FOREIGN KEY (vendeuse_id) REFERENCES profiles(id)"
+        }
+      ],
+      "rls_enabled": true,
+      "view_definition": null
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "categories",
+      "permissive": "PERMISSIVE",
+      "policyname": "categories_ecriture_admin",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(auth.role() = 'authenticated'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "categories",
+      "permissive": "PERMISSIVE",
+      "policyname": "categories_lecture_tous",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "categories",
+      "permissive": "PERMISSIVE",
+      "policyname": "categories_modif_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "categories",
+      "permissive": "PERMISSIVE",
+      "policyname": "categories_suppr_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "produits",
+      "permissive": "PERMISSIVE",
+      "policyname": "produits_ecriture_admin",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(auth.role() = 'authenticated'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "produits",
+      "permissive": "PERMISSIVE",
+      "policyname": "produits_lecture_tous",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "produits",
+      "permissive": "PERMISSIVE",
+      "policyname": "produits_modif_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "produits",
+      "permissive": "PERMISSIVE",
+      "policyname": "produits_suppr_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_lecture_soi_meme",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "ventes",
+      "permissive": "PERMISSIVE",
+      "policyname": "ventes_ecriture_soi_meme",
+      "schemaname": "public",
+      "with_check": "(vendeuse_id = auth.uid())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ventes",
+      "permissive": "PERMISSIVE",
+      "policyname": "ventes_lecture_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(vendeuse_id = auth.uid())",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ventes",
+      "permissive": "PERMISSIVE",
+      "policyname": "ventes_lecture_vendeuse",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ventes",
+      "permissive": "PERMISSIVE",
+      "policyname": "ventes_modif_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ventes",
+      "permissive": "PERMISSIVE",
+      "policyname": "ventes_suppr_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "objects",
+      "permissive": "PERMISSIVE",
+      "policyname": "photos_ecriture_admin",
+      "schemaname": "storage",
+      "with_check": "((bucket_id = 'photos-produits'::text) AND (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(bucket_id = 'photos-produits'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "objects",
+      "permissive": "PERMISSIVE",
+      "policyname": "photos_lecture_publique",
+      "schemaname": "storage",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((bucket_id = 'photos-produits'::text) AND (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "objects",
+      "permissive": "PERMISSIVE",
+      "policyname": "photos_modif_admin",
+      "schemaname": "storage",
+      "with_check": null
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "((bucket_id = 'photos-produits'::text) AND (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "objects",
+      "permissive": "PERMISSIVE",
+      "policyname": "photos_suppr_admin",
+      "schemaname": "storage",
+      "with_check": null
+    }
+  ],
+  "functions": [
+    {
+      "name": "deduire_stock_apres_vente",
+      "settings": [
+        "search_path=public"
+      ],
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.deduire_stock_apres_vente()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\nbegin\r\n  update public.produits\r\n  set stock_quantite = stock_quantite - new.quantite,\r\n      updated_at = now()\r\n  where id = new.produit_id;\r\n\r\n  if (select stock_quantite from public.produits where id = new.produit_id) < 0 then\r\n    raise exception 'Stock insuffisant pour ce produit';\r\n  end if;\r\n\r\n  return new;\r\nend;\r\n$function$\n",
+      "result_type": "trigger",
+      "schema_name": "public",
+      "security_definer": true
+    },
+    {
+      "name": "is_admin",
+      "settings": [
+        "search_path=public"
+      ],
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_admin()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n    select exists (\r\n        select 1\r\n        from public.profiles\r\n        where id = auth.uid()\r\n          and role = 'admin'\r\n    );\r\n$function$\n",
+      "result_type": "boolean",
+      "schema_name": "public",
+      "security_definer": true
+    },
+    {
+      "name": "modifier_mon_nom",
+      "settings": [
+        "search_path=public, auth"
+      ],
+      "arguments": "p_nom_complet text",
+      "definition": "CREATE OR REPLACE FUNCTION public.modifier_mon_nom(p_nom_complet text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'auth'\nAS $function$\r\nbegin\r\n  if auth.uid() is null then\r\n    raise exception 'Utilisateur non connecté';\r\n  end if;\r\n\r\n  if p_nom_complet is null or length(trim(p_nom_complet)) = 0 then\r\n    raise exception 'Le nom est obligatoire';\r\n  end if;\r\n\r\n  update public.profiles\r\n  set nom_complet = trim(p_nom_complet)\r\n  where id = auth.uid();\r\n\r\n  if not found then\r\n    raise exception 'Profil introuvable';\r\n  end if;\r\nend;\r\n$function$\n",
+      "result_type": "void",
+      "schema_name": "public",
+      "security_definer": true
+    },
+    {
+      "name": "set_updated_at",
+      "settings": null,
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.set_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\r\nbegin\r\n  new.updated_at = now();\r\n  return new;\r\nend;\r\n$function$\n",
+      "result_type": "trigger",
+      "schema_name": "public",
+      "security_definer": false
+    },
+    {
+      "name": "supprimer_personnel_admin",
+      "settings": [
+        "search_path=public, auth"
+      ],
+      "arguments": "p_user_id uuid",
+      "definition": "CREATE OR REPLACE FUNCTION public.supprimer_personnel_admin(p_user_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'auth'\nAS $function$\r\nbegin\r\n  if auth.uid() is null then\r\n    raise exception 'Utilisateur non connecté';\r\n  end if;\r\n\r\n  if not exists (\r\n    select 1\r\n    from public.profiles\r\n    where id = auth.uid()\r\n      and role = 'admin'\r\n      and coalesce(active, true) = true\r\n  ) then\r\n    raise exception 'Action réservée à l administrateur';\r\n  end if;\r\n\r\n  if p_user_id = auth.uid() then\r\n    raise exception 'Vous ne pouvez pas supprimer votre propre compte';\r\n  end if;\r\n\r\n  if not exists (\r\n    select 1\r\n    from public.profiles\r\n    where id = p_user_id\r\n      and role = 'personnel'\r\n  ) then\r\n    raise exception 'Personnel introuvable';\r\n  end if;\r\n\r\n  delete from auth.users\r\n  where id = p_user_id;\r\nend;\r\n$function$\n",
+      "result_type": "void",
+      "schema_name": "public",
+      "security_definer": true
+    },
+    {
+      "name": "supprimer_vente",
+      "settings": [
+        "search_path=public"
+      ],
+      "arguments": "p_vente_id uuid",
+      "definition": "CREATE OR REPLACE FUNCTION public.supprimer_vente(p_vente_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n    v_product_id uuid;\r\n    v_quantite integer;\r\nbegin\r\n    if not exists (\r\n        select 1\r\n        from public.profiles\r\n        where id = auth.uid()\r\n        and role = 'admin'\r\n    ) then\r\n        raise exception 'Accès refusé : administrateur uniquement.';\r\n    end if;\r\n\r\n    select product_id, quantite\r\n    into v_product_id, v_quantite\r\n    from public.ventes\r\n    where id = p_vente_id\r\n    for update;\r\n\r\n    if v_product_id is null then\r\n        raise exception 'Vente introuvable.';\r\n    end if;\r\n\r\n    update public.produits\r\n    set stock_quantite = stock_quantite + v_quantite,\r\n        updated_at = now()\r\n    where id = v_product_id;\r\n\r\n    delete from public.ventes\r\n    where id = p_vente_id;\r\nend;\r\n$function$\n",
+      "result_type": "void",
+      "schema_name": "public",
+      "security_definer": true
+    },
+    {
+      "name": "supprimer_vente_admin",
+      "settings": [
+        "search_path=public"
+      ],
+      "arguments": "p_vente_id uuid",
+      "definition": "CREATE OR REPLACE FUNCTION public.supprimer_vente_admin(p_vente_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n    v_product_id uuid;\r\n    v_quantite integer;\r\nbegin\r\n    if not exists (\r\n        select 1\r\n        from public.profiles\r\n        where id = auth.uid()\r\n        and role = 'admin'\r\n    ) then\r\n        raise exception 'Accès refusé : administrateur uniquement.';\r\n    end if;\r\n\r\n    select product_id, quantite\r\n    into v_product_id, v_quantite\r\n    from public.ventes\r\n    where id = p_vente_id\r\n    for update;\r\n\r\n    if v_product_id is null then\r\n        raise exception 'Vente introuvable.';\r\n    end if;\r\n\r\n    update public.produits\r\n    set stock_quantite = stock_quantite + v_quantite,\r\n        updated_at = now()\r\n    where id = v_product_id;\r\n\r\n    delete from public.ventes\r\n    where id = p_vente_id;\r\nend;\r\n$function$\n",
+      "result_type": "void",
+      "schema_name": "public",
+      "security_definer": true
+    }
+  ]
+}

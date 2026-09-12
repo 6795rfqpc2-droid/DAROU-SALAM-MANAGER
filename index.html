@@ -79,7 +79,7 @@
 
         <!-- SIDEBAR -->
 
-        <aside class="sidebar">
+        <aside id="mobileMenu" class="sidebar">
 
             <div class="sidebar-logo">
                 <div class="logo-icon">🌸</div>
@@ -132,6 +132,10 @@
                     <span>📈</span>
                     <span>Statistiques</span>
                 </button>
+
+                <button class="nav-item" data-page="remittances"><span>💰</span><span>Versements</span></button>
+                <button class="nav-item" data-page="reports"><span>📋</span><span>Bilan mensuel</span></button>
+                <button class="nav-item" data-page="invoices"><span>🧾</span><span>Factures</span></button>
 
                 <button class="nav-item admin-only" data-page="staff">
                     <span>👤</span>
@@ -194,6 +198,8 @@
 
                 <div class="header-actions">
 
+                    <div class="shop-selector"><label for="shopSelector">Boutique active</label><select id="shopSelector" aria-label="Boutique active"></select></div>
+
                     <button id="refreshButton" class="icon-button" title="Actualiser">
                         ↻
                     </button>
@@ -206,12 +212,29 @@
 
             </header>
 
+            <p id="shopContext" class="shop-context"></p>
+            <p id="shopLoadStatus" role="status" hidden></p>
+
+            <section id="reportsPage" class="page">
+                <div class="section-header"><h2>Bilan mensuel</h2></div>
+                <div class="shop-report-actions"><label for="reportMonth">Mois</label><input type="month" id="reportMonth" required><button id="reportPdf" class="btn-primary">Télécharger en PDF</button><button id="reportPrint" class="btn-secondary">Imprimer</button></div>
+                <div id="monthlyReport"></div>
+            </section>
+            <section id="remittancesPage" class="page">
+                <h2>Versements à l’administratrice</h2>
+                <form id="remittanceForm" class="shop-report-actions"><label for="remittanceAmount">Montant (F CFA)</label><input id="remittanceAmount" type="number" min="1" step="1" required><label for="remittanceNote">Note</label><input id="remittanceNote" maxlength="500"><button class="btn-primary">Enregistrer le versement</button></form>
+                <div id="remittanceList"></div>
+            </section>
+            <section id="invoicesPage" class="page"><h2>Factures de la boutique</h2><div id="invoiceList"></div></section>
+
 
             <!-- =================================================
                  DASHBOARD
             ================================================== -->
 
             <section id="dashboardPage" class="page active">
+
+                <div id="shopOverview" class="shop-overview"></div>
 
                 <div class="welcome-card">
 
@@ -496,7 +519,7 @@
                                 type="number"
                                 id="saleUnitPrice"
                                 min="0"
-                                readonly
+
                             >
                         </div>
 
@@ -848,7 +871,6 @@
 
                 </div>
 
-
                 <div class="statistics-grid">
 
                     <div class="card">
@@ -891,6 +913,15 @@
                         </strong>
                     </div>
 
+                </div>
+
+                <div class="card statistics-chart-card">
+                    <div class="card-header"><div><h3>Évolution du chiffre d’affaires</h3><p id="statisticsChartContext"></p></div>
+                        <div><label for="statisticsMonth">Mois du graphique</label><input type="month" id="statisticsMonth" required></div>
+                    </div>
+                    <div id="statisticsChart" class="statistics-chart" aria-live="polite"></div>
+                    <p id="statisticsChartSummary" class="shop-note"></p>
+                    <div id="statisticsComparison"></div>
                 </div>
 
 
@@ -954,7 +985,7 @@
 
                 </div>
 
- 
+
                 <div class="card">
 
                     <div class="card-header">
@@ -1729,7 +1760,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Notre JavaScript -->
+    <dialog id="invoiceModal"><h2>Facture</h2><div id="invoiceContent"></div><div class="shop-report-actions"><button id="invoicePdf" class="btn-primary">Télécharger en PDF</button><button id="invoicePrint" class="btn-secondary">Imprimer</button><button class="btn-secondary" onclick="document.getElementById('invoiceModal').close()">Fermer</button></div></dialog>
+    <div id="shopPrintArea"></div>
+    <script src="shops-core.js"></script>
     <script src="script.js"></script>
+    <script src="shops.js"></script>
 
 </body>
 </html>

@@ -1,0 +1,61 @@
+// Vérification visuelle isolée : toutes les requêtes sont interceptées, aucune donnée réelle.
+const fs=require('node:fs');
+const path=require('node:path');
+const assert=require('node:assert/strict');
+const {mockClient,shops}=require('./mock-client.cjs');
+const {chromium}=require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
+(async()=>{
+ const browser=await chromium.launch({headless:true,channel:'msedge'});
+ try {
+  const page=await browser.newPage({viewport:{width:1440,height:1000}});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.addInitScript({content:`const shops=${JSON.stringify(shops)}; const mockClient=${mockClient.toString()}; window.supabase={createClient:()=>mockClient()};`});
+  await page.route('**/*',async route=>{
+   const url=new URL(route.request().url());
+   if(url.hostname!=='darou.test')return route.fulfill({body:'',contentType:'text/javascript'});
+   const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
+   if(!['index.html','script.js','shops.js','shops-core.js','style.css'].includes(name))return route.fulfill({status:404,body:''});
+   await route.fulfill({body:fs.readFileSync(name),contentType:name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});
+  });
+  await page.goto('http://darou.test');
+  await page.locator('#shopOverview h2').waitFor();
+  fs.mkdirSync('test-results',{recursive:true});
+  await page.screenshot({path:'test-results/dashboard-desktop.png',fullPage:true});
+  await page.selectOption('#shopSelector','all');
+  await page.locator('body.global-shops').waitFor();
+  await page.locator('#shopOverview h2').waitFor();
+  assert.match(await page.locator('#shopOverview').innerText(),/800/);
+  await page.screenshot({path:'test-results/dashboard-global.png',fullPage:true});
+  await page.selectOption('#shopSelector','ad');
+  await page.waitForFunction(()=>document.querySelector('#shopOverview h2')?.textContent==='Boutique Adama Faye');
+  assert.ok(!(await page.locator('#productsGrid').innerText()).includes('Dialabè'));
+  await page.setViewportSize({width:390,height:844});
+  await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=0);
+  await page.locator('#mobileMenuButton').click();
+  await page.locator('[data-page="reports"]').click();
+  await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=0);
+  await page.screenshot({path:'test-results/dashboard-mobile.png',fullPage:true});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'débordement horizontal mobile');
+  await page.selectOption('#shopSelector','kh');
+  await page.waitForFunction(()=>document.querySelector('#shopOverview h2')?.textContent==='Boutique Khady Faye');
+  await page.setViewportSize({width:1440,height:1000});
+  await page.locator('[data-page="reports"]').click();
+  await page.locator('#reportMonth').fill('2026-09');
+  const downloadPromise=page.waitForEvent('download');await page.locator('#reportPdf').click();
+  await (await downloadPromise).saveAs(path.resolve('test-results/bilan-browser.pdf'));
+  await page.screenshot({path:'test-results/bilan-desktop.png',fullPage:true});
+  await page.locator('[data-page="invoices"]').click();await page.locator('[data-invoice]').click();
+  await page.screenshot({path:'test-results/facture-desktop.png',fullPage:true});
+  await page.locator('#invoiceModal button').filter({hasText:'Fermer'}).click();
+  await page.locator('[data-page="statistics"]').click();
+  await page.locator('#statisticsMonth').fill('2026-09');
+  assert.equal(await page.locator('#statisticsChart rect').count(),30);
+  await page.screenshot({path:'test-results/statistiques-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=0);
+  await page.screenshot({path:'test-results/statistiques-mobile.png',fullPage:true});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
+  assert.deepEqual(errors,[]);
+  console.log('Navigateur : changements Khady/global/Adama, mobile, bilan PDF et facture validés.');
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e);process.exitCode=1});
