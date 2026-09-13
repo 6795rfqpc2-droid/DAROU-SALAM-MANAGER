@@ -2,4 +2,6 @@ node_modules/
 test-results/
 public/
 dist/
+.netlify/
+darou-salam-netlify.zip
 *.tar.gz
