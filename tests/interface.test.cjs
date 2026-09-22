@@ -17,6 +17,34 @@ async function boot(selected='kh',role='admin'){
  assert.equal(w.document.getElementById('loginMessage').textContent,'');
  return {dom,w,client};
 }
+test('catégories : le bouton Ajouter utilise le champ visible dans chaque boutique',async()=>{
+ for(const shop of ['kh','ad','am']){
+  const {dom,w,client}=await boot(shop);try{
+   const original=client.from;
+   client.from=function(table){
+    const query=original.call(this,table);
+    if(table==='categories') query.insert=rows=>{
+     client.calls.at(-1).insert=rows;
+     client.tables.categories.push({id:'new-'+shop,...rows});
+     query.single=async()=>({data:{id:'new-'+shop,...rows},error:null});
+     return query;
+    };
+    return query;
+   };
+   const input=w.document.getElementById('newCategoryName');
+   input.value=' sacs ';
+   w.document.getElementById('addCategoryButton').click();
+   await new Promise(resolve=>w.setTimeout(resolve,20));
+   const inserts=client.calls.filter(c=>c.table==='categories'&&c.insert);
+   assert.equal(inserts.length,1);
+   assert.equal(inserts[0].insert.nom,'sacs');
+   assert.equal(inserts[0].insert.shop_id,shop);
+   assert.equal(input.value,'');
+   assert.match(w.document.getElementById('categoriesList').textContent,/sacs/);
+  }finally{dom.window.close()}
+ }
+});
+
 test('interface : boutique active, chargement filtré et actualisation complète',async()=>{
  const {dom,w,client}=await boot();try{
  assert.equal(w.testApi.getState().sales.length,1);

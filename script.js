@@ -621,7 +621,7 @@ async function addCategory() {
         return;
     }
 
-    const input = $("#newCategoryNom");
+    const input = $("#newCategoryName");
 
     if (!input) return;
 
