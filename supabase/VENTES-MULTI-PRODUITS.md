@@ -13,6 +13,11 @@ La migration ajoute leurs lignes descriptives sans modifier le stock. Elle ne
 supprime aucune table ni donnée. Les annulations conservent la vente et sa facture,
 avec la mention « Annulée », et remettent tous les articles en stock une seule fois.
 
+Le contrôle avant/après utilise désormais des variables JSON dans un seul bloc
+`DO $migration$`. Il ne dépend d'aucune table temporaire ou table de sauvegarde
+préexistante. Le bloc complet est atomique même lorsqu'il est envoyé comme une
+seule instruction SQL ; le fichier conserve également sa transaction explicite.
+
 ## À faire dans Supabase
 
 1. Ouvrir le projet utilisé par DAROU SALAM MANAGER, puis **SQL Editor → New query**.

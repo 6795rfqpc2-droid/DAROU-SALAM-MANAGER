@@ -2,7 +2,14 @@
 -- Aucune table/vente/facture supprimée. Toute erreur annule la transaction entière.
 BEGIN;
 SET LOCAL lock_timeout = '10s';
-DO $$ BEGIN
+-- Un seul bloc conserve les instantanés en mémoire jusqu'au contrôle final.
+-- Aucune table temporaire ni relation de sauvegarde préalable n'est nécessaire.
+DO $migration$
+DECLARE
+ snapshot_sales jsonb;
+ snapshot_invoices jsonb;
+ snapshot_stocks jsonb;
+BEGIN
  IF to_regclass('public.vente_lignes') IS NOT NULL THEN
   RAISE EXCEPTION 'Les lignes de vente existent déjà : ne pas réexécuter cette migration';
  END IF;
@@ -14,11 +21,13 @@ DO $$ BEGIN
    AND table_name='customers' AND column_name='id' AND data_type='bigint') THEN
   RAISE EXCEPTION 'Schéma inattendu : demander un diagnostic avant toute modification';
  END IF;
-END $$;
 LOCK TABLE public.ventes, public.factures, public.produits IN ACCESS EXCLUSIVE MODE;
-CREATE TEMP TABLE ventes_avant ON COMMIT DROP AS SELECT * FROM public.ventes;
-CREATE TEMP TABLE factures_avant ON COMMIT DROP AS SELECT * FROM public.factures;
-CREATE TEMP TABLE stocks_avant ON COMMIT DROP AS SELECT id,stock_quantite,reserved_quantity FROM public.produits;
+SELECT coalesce(jsonb_agg(to_jsonb(v) ORDER BY v.id),'[]'::jsonb)
+ INTO snapshot_sales FROM public.ventes v;
+SELECT coalesce(jsonb_agg(to_jsonb(f) ORDER BY f.id),'[]'::jsonb)
+ INTO snapshot_invoices FROM public.factures f;
+SELECT coalesce(jsonb_agg(jsonb_build_array(p.id,p.stock_quantite,p.reserved_quantity) ORDER BY p.id),'[]'::jsonb)
+ INTO snapshot_stocks FROM public.produits p;
 
 -- Les anciennes colonnes et le total calculé restent intacts. Une commande utilise
 -- quantite=1, prix_unitaire=total ; ses vrais articles se trouvent dans vente_lignes.
@@ -174,16 +183,14 @@ REVOKE ALL ON FUNCTION public.create_sale_order(uuid,bigint,jsonb,uuid),public.s
 GRANT EXECUTE ON FUNCTION public.create_sale_order(uuid,bigint,jsonb,uuid),public.sales_api_version() TO authenticated;
 
 -- Vérifications : toutes les valeurs historiques et tous les stocks sont préservés.
-DO $$ BEGIN
- IF (SELECT count(*) FROM public.ventes)<>(SELECT count(*) FROM ventes_avant)
- OR EXISTS(SELECT 1 FROM ventes_avant a JOIN public.ventes v USING(id)
-  WHERE to_jsonb(a) IS DISTINCT FROM (to_jsonb(v)-ARRAY['multi_produits','request_id','request_payload']))
- OR (SELECT count(*) FROM public.factures)<>(SELECT count(*) FROM factures_avant)
- OR EXISTS(SELECT 1 FROM factures_avant a JOIN public.factures f USING(id)
-  WHERE to_jsonb(a) IS DISTINCT FROM (to_jsonb(f)-ARRAY['items','customer_phone','customer_address','paid_amount']))
- OR EXISTS(SELECT * FROM stocks_avant EXCEPT SELECT id,stock_quantite,reserved_quantity FROM public.produits)
+ IF snapshot_sales IS DISTINCT FROM
+  (SELECT coalesce(jsonb_agg((to_jsonb(v)-ARRAY['multi_produits','request_id','request_payload']) ORDER BY v.id),'[]'::jsonb) FROM public.ventes v)
+ OR snapshot_invoices IS DISTINCT FROM
+  (SELECT coalesce(jsonb_agg((to_jsonb(f)-ARRAY['items','customer_phone','customer_address','paid_amount']) ORDER BY f.id),'[]'::jsonb) FROM public.factures f)
+ OR snapshot_stocks IS DISTINCT FROM
+  (SELECT coalesce(jsonb_agg(jsonb_build_array(p.id,p.stock_quantite,p.reserved_quantity) ORDER BY p.id),'[]'::jsonb) FROM public.produits p)
  THEN RAISE EXCEPTION 'Contrôle de conservation échoué'; END IF;
-END $$;
+END $migration$;
 NOTIFY pgrst, 'reload schema';
 COMMIT;
 SELECT public.sales_api_version() AS version_ventes,

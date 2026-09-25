@@ -34,7 +34,22 @@ test('migration réelle : conservation, RLS, RPC, factures et réservations',asy
  INSERT INTO public.ventes(produit_id,quantite,prix_unitaire,mode_paiement,vendeuse_id) VALUES('${prod}',1,500,'especes','${staff}');`);
  await db.exec(fs.readFileSync('supabase/migration-multi-boutiques.sql','utf8'));
  const before=await db.query('SELECT v.id,v.montant_total,p.stock_quantite,f.numero FROM ventes v JOIN produits p ON p.id=v.produit_id JOIN factures f ON f.sale_id=v.id');
- await db.exec(fs.readFileSync('supabase/migration-ventes-multi-produits.sql','utf8'));
+ const migration=fs.readFileSync('supabase/migration-ventes-multi-produits.sql','utf8');
+ const block=migration.match(/DO \$migration\$[\s\S]*?END \$migration\$;/)[0];
+ await t.test('migration autonome : contrôle de conservation et retour arrière complet',async()=>{
+  const corrupted=block.replace('-- Vérifications :',`UPDATE public.produits SET stock_quantite=stock_quantite+1;\n-- Vérifications :`);
+  await assert.rejects(db.exec(corrupted),/Contrôle de conservation échoué/);
+  assert.equal((await db.query("SELECT to_regclass('public.vente_lignes') AS relation")).rows[0].relation,null);
+  assert.equal((await db.query(`SELECT stock_quantite n FROM public.produits WHERE id='${prod}'`)).rows[0].n,29);
+ });
+ await t.test('migration autonome : aucun schéma implicite ni table temporaire requis',async()=>{
+  await db.exec("BEGIN; SET LOCAL search_path='';");
+  try {
+   await db.exec(block);
+   assert.equal((await db.query('SELECT public.sales_api_version() AS version')).rows[0].version,2);
+  } finally {await db.exec('ROLLBACK');}
+ });
+ await db.exec(migration);
  assert.deepEqual((await db.query('SELECT v.id,v.montant_total,p.stock_quantite,f.numero FROM ventes v JOIN produits p ON p.id=v.produit_id JOIN factures f ON f.sale_id=v.id')).rows,before.rows);
  await db.exec(`CREATE SCHEMA storage;
  CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
