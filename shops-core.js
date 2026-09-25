@@ -13,8 +13,9 @@
         let profit = 0, unknownCosts = 0;
         for (const sale of sales) {
             const invoice = invoices.get(sale.id);
-            if (invoice?.purchase_price == null) unknownCosts++;
-            else profit += Number(sale.montant_total) - Number(invoice.purchase_price) * Number(sale.quantite);
+            const items = invoice?.items?.length ? invoice.items : [{purchase_price:invoice?.purchase_price,quantity:sale.quantite}];
+            if (items.some(l=>l.purchase_price == null)) unknownCosts++;
+            else profit += Number(sale.montant_total) - items.reduce((n,l)=>n+Number(l.purchase_price)*Number(l.quantity),0);
         }
         const receipts = sum(sales.filter(row => !linked.has(row.id)), 'montant_total') + sum(payments, 'amount');
         const stock = scoped(data.products);

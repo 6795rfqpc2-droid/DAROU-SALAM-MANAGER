@@ -33,6 +33,9 @@ test('migration réelle : conservation, RLS, RPC, factures et réservations',asy
  INSERT INTO public.customers(nom) VALUES('Ancien client');
  INSERT INTO public.ventes(produit_id,quantite,prix_unitaire,mode_paiement,vendeuse_id) VALUES('${prod}',1,500,'especes','${staff}');`);
  await db.exec(fs.readFileSync('supabase/migration-multi-boutiques.sql','utf8'));
+ const before=await db.query('SELECT v.id,v.montant_total,p.stock_quantite,f.numero FROM ventes v JOIN produits p ON p.id=v.produit_id JOIN factures f ON f.sale_id=v.id');
+ await db.exec(fs.readFileSync('supabase/migration-ventes-multi-produits.sql','utf8'));
+ assert.deepEqual((await db.query('SELECT v.id,v.montant_total,p.stock_quantite,f.numero FROM ventes v JOIN produits p ON p.id=v.produit_id JOIN factures f ON f.sale_id=v.id')).rows,before.rows);
  await db.exec(`CREATE SCHEMA storage;
  CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
  CREATE TABLE storage.objects(id uuid DEFAULT gen_random_uuid(),bucket_id text,name text);
@@ -108,6 +111,67 @@ test('migration réelle : conservation, RLS, RPC, factures et réservations',asy
   assert.equal(Number((await scalar(`SELECT sum(amount) n FROM payments WHERE reservation_id=${r}`)).n),1000);
  });
  await login(admin);
+ await t.test('commandes : plusieurs articles, doublons, stocks, snapshots, idempotence, annulation',async()=>{
+  const second=(await scalar(`INSERT INTO produits(shop_id,categorie_id,nom_modele,prix,stock_quantite,purchase_price) VALUES('${kh}','${cat}','Foulard',250,15,100) RETURNING id`)).id;
+  const start=(await scalar(`SELECT stock_quantite n FROM produits WHERE id='${prod}'`)).n;
+  const items=JSON.stringify([{product_id:prod,quantity:2,unit_price:500},{product_id:second,quantity:3,unit_price:250},{product_id:second,quantity:1,unit_price:200}]);
+  const request='40000000-0000-4000-8000-000000000001';
+  const sql=`SELECT create_sale_order('${kh}',1,'${items}','${request}') id`;
+  const id=(await scalar(sql)).id;
+  assert.equal((await scalar(sql)).id,id);
+  assert.equal((await scalar(`SELECT stock_quantite n FROM produits WHERE id='${prod}'`)).n,start-2);
+  assert.equal((await scalar(`SELECT stock_quantite n FROM produits WHERE id='${second}'`)).n,11);
+  assert.equal((await scalar(`SELECT count(*)::int n FROM vente_lignes WHERE sale_id='${id}'`)).n,3);
+  assert.equal(Number((await scalar(`SELECT montant_total FROM ventes WHERE id='${id}'`)).montant_total),1950);
+  const inv=await scalar(`SELECT * FROM factures WHERE sale_id='${id}'`);
+  assert.equal(inv.items.length,3);assert.equal(Number(inv.total_amount),1950);assert.equal(Number(inv.paid_amount),1950);
+  assert.equal(inv.customer_name,'Ancien client');assert.equal(inv.shop_name,'Boutique Khady Faye');
+  await db.exec(`UPDATE produits SET nom_modele='Foulard renommé',purchase_price=999 WHERE id='${second}'`);
+  assert.equal((await scalar(`SELECT items FROM factures WHERE sale_id='${id}'`)).items[1].product_name,'Foulard');
+  assert.equal((await scalar(`SELECT items FROM factures WHERE sale_id='${id}'`)).items[1].purchase_price,100);
+  await login(staff);
+  await fails(`SELECT supprimer_vente_admin('${kh}','${id}')`);
+  await fails(`UPDATE vente_lignes SET quantity=99 WHERE sale_id='${id}'`);
+  await fails(`SELECT create_sale_order('${ad}',null,'${items}',gen_random_uuid())`);
+  await fails(sql);
+  await login(admin);
+  await db.exec(`SELECT supprimer_vente_admin('${kh}','${id}')`);
+  assert.equal((await scalar(`SELECT stock_quantite n FROM produits WHERE id='${prod}'`)).n,start);
+  assert.equal((await scalar(`SELECT stock_quantite n FROM produits WHERE id='${second}'`)).n,15);
+  await fails(`SELECT supprimer_vente_admin('${kh}','${id}')`);
+  assert.equal((await scalar(`SELECT count(*)::int n FROM factures WHERE sale_id='${id}'`)).n,1);
+  assert.equal((await scalar(sql)).id,id);
+  await fails(`SELECT create_sale_order('${kh}',null,'${items}','${request}')`);
+ });
+ await t.test('commande : erreur au dernier article annule tous les débits et documents',async()=>{
+  const before=(await db.query('SELECT id,stock_quantite FROM produits ORDER BY id')).rows;
+  const count=(await scalar('SELECT count(*)::int n FROM ventes')).n;
+  for(const items of [[],[{product_id:prod,quantity:1,unit_price:10},{product_id:prod,quantity:9999,unit_price:10}],
+   [{product_id:prod,quantity:1,unit_price:10},{product_id:prodAd,quantity:1,unit_price:10}],
+   [{product_id:prod,quantity:1.5,unit_price:10}], [{product_id:prod,quantity:1,unit_price:-1}],
+   [{product_id:prod,quantity:1,unit_price:0.001}]]) {
+    await fails(`SELECT create_sale_order('${kh}',null,'${JSON.stringify(items)}',gen_random_uuid())`);
+   }
+  assert.deepEqual((await db.query('SELECT id,stock_quantite FROM produits ORDER BY id')).rows,before);
+  assert.equal((await scalar('SELECT count(*)::int n FROM ventes')).n,count);
+ });
+ await t.test('commande mono-article, cliente figée, stocks réservés et annulation ancienne',async()=>{
+  await db.exec(`UPDATE customers SET telephone='770000000',adresse='Dakar' WHERE id=1`);
+  const items=JSON.stringify([{product_id:prod,quantity:1,unit_price:400}]);
+  const start=(await scalar(`SELECT stock_quantite n FROM produits WHERE id='${prod}'`)).n;
+  const id=(await scalar(`SELECT create_sale_order('${kh}',1,'${items}',gen_random_uuid()) id`)).id;
+  const f=await scalar(`SELECT * FROM factures WHERE sale_id='${id}'`);
+  assert.equal(f.items.length,1);assert.equal(f.customer_phone,'770000000');assert.equal(f.customer_address,'Dakar');
+  assert.equal((await scalar(`SELECT stock_quantite n FROM produits WHERE id='${prod}'`)).n,start-1);
+  await db.exec(`SELECT supprimer_vente_admin('${kh}','${id}')`);
+  assert.equal((await scalar(`SELECT stock_quantite n FROM produits WHERE id='${prod}'`)).n,start);
+  const archive=await scalar('SELECT sale_id FROM factures WHERE legacy LIMIT 1');
+  await db.exec(`SELECT supprimer_vente_admin('${kh}','${archive.sale_id}')`);
+  assert.equal((await scalar(`SELECT stock_quantite n FROM produits WHERE id='${prod}'`)).n,start+1);
+  const r=(await scalar(`SELECT create_reservation('${kh}',1,'${prod}',${start+1},0,'Tout réservé') id`)).id;
+  await fails(`SELECT create_sale_order('${kh}',null,'${items}',gen_random_uuid())`);
+  await db.exec(`SELECT cancel_reservation('${kh}',${r})`);
+ });
  await t.test('réaffectation et désactivation retirent réellement les accès',async()=>{
   await db.exec(`SELECT set_staff_shops('${staff}',ARRAY['${am}'::uuid]);`);
   await login(staff);

@@ -4,7 +4,7 @@ let activeShopId = null;
 let shopData = {products: [], sales: [], reservations: [], payments: [], versements: [], factures: []};
 let shopReady = false;
 let refreshPromise = null;
-const shopRpcNames = new Set(['create_sale','restock_product','create_reservation','add_payment',
+const shopRpcNames = new Set(['create_sale','create_sale_order','restock_product','create_reservation','add_payment',
     'mark_reservation_remis','cancel_reservation','supprimer_vente_admin','record_versement']);
 
 function currentShopName() {
@@ -79,7 +79,11 @@ function hydrateShopData(raw, categoryRows, customerRows) {
     const invoices = new Map(raw.factures.map(f => [f.sale_id, f]));
     sales = raw.sales.filter(s => !s.cancelled_at).sort((a,b) => b.date_vente.localeCompare(a.date_vente)).map(s => {
         const invoice = invoices.get(s.id);
-        return normalizeSaleRow({...s, products: invoice ? {name: invoice.product_name, purchase_price: invoice.purchase_price} : undefined,
+        return normalizeSaleRow({...s,
+            items: invoice?.items,
+            quantity: invoice?.items?.reduce((n,l)=>n+Number(l.quantity),0) ?? s.quantite,
+            unit_price: invoice?.items?.length===1 ? invoice.items[0].unit_price : s.prix_unitaire,
+            products: invoice ? {name: invoice.product_name, purchase_price: invoice.purchase_price} : undefined,
             customers: invoice ? {full_name: invoice.customer_name} : undefined});
     });
     reservations = raw.reservations.map(r => ({...r,
@@ -189,7 +193,7 @@ function renderStatisticsChart() {
 }
 renderTopProducts = function() {
     const totals = new Map();
-    for (const sale of sales) {
+    for (const order of sales) for (const sale of order.items?.length ? order.items.map(l=>({shop_id:order.shop_id,product_id:l.product_id,quantity:l.quantity,products:{name:l.product_name}})) : [order]) {
         const key = sale.shop_id + ':' + sale.product_id;
         const row = totals.get(key) || {name: sale.products?.name || 'Produit', shop_id: sale.shop_id, quantity: 0};
         row.quantity += Number(sale.quantity);
@@ -345,11 +349,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         const invoice=event.target.closest('[data-invoice]');
         if(invoice) {
             const f=shopData.factures.find(x=>x.id===invoice.dataset.invoice); if(!f)return;
-            const lines=invoiceLines(f), modal=document.getElementById('invoiceModal');
-            document.getElementById('invoiceContent').innerHTML=lines.map(x=>'<p>'+escapeHtml(x)+'</p>').join('');
-            document.getElementById('invoicePdf').onclick=()=>downloadPdf(lines,f.numero);
-            document.getElementById('invoicePrint').onclick=()=>printLines(lines);
-            modal.showModal(); return;
+            openInvoice(f); return;
         }
         const save=event.target.closest('[data-save-access]'), toggle=event.target.closest('[data-staff-toggle]');
         if(!save&&!toggle)return;

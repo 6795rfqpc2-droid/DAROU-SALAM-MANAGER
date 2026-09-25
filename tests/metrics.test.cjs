@@ -1,6 +1,17 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {summarize,dailyRevenue}=require('../shops-core');
+test('commande multi-produits : une vente, coûts de chaque article et annulation',()=>{
+ const data={products:[],reservations:[],payments:[],versements:[],
+  sales:[{id:'a',shop_id:'kh',montant_total:1950,quantite:1,date_vente:'2026-09-24'}],
+  factures:[{sale_id:'a',items:[{quantity:2,purchase_price:200},{quantity:4,purchase_price:100}]}]};
+ const m=summarize(data,'kh');
+ assert.equal(m.salesCount,1);assert.equal(m.revenue,1950);assert.equal(m.receipts,1950);assert.equal(m.profit,1150);
+ data.factures[0].items[1].purchase_price=null;
+ assert.equal(summarize(data,'kh').unknownCosts,1);
+ data.sales[0].cancelled_at='2026-09-25';
+ assert.equal(summarize(data,'kh').revenue,0);assert.equal(summarize(data,'kh').receipts,0);
+});
 test('graphique quotidien : mois, boutique, jours vides et annulations',()=>{
  const rows=[{shop_id:'kh',date_vente:'2026-09-02',montant_total:500},
  {shop_id:'ad',date_vente:'2026-09-02',montant_total:300},

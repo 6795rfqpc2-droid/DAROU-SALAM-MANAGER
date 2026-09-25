@@ -3,20 +3,59 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
 const {mockClient}=require('./mock-client.cjs');
-async function boot(selected='kh',role='admin'){
+async function boot(selected='kh',role='admin',version=null){
  const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{runScripts:'outside-only',url:'http://localhost'});
  const {window:w}=dom;const client=mockClient(role); w.supabase={createClient:()=>client};
+ const originalRpc=client.rpc;
+ client.rpc=(name,args)=>name==='sales_api_version'
+  ? Promise.resolve(version==='missing'?{data:null,error:{code:'PGRST202',message:'Function not found'}}:{data:version,error:null})
+  : originalRpc(name,args);
  w.sessionStorage.setItem('shop:user',selected); w.confirm=()=>true;
  w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','')};
  w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open')};
  w.URL.createObjectURL=blob=>{w.lastPdf=blob;return 'blob:test'};w.URL.revokeObjectURL=()=>{};
  w.HTMLAnchorElement.prototype.click=function(){};
- w.eval(['shops-core.js','script.js','shops.js'].map(f=>fs.readFileSync(f,'utf8')).join('\n')+`
- window.testApi={refreshAll,shopTable,shopRpc,allShopRows,renderStaffAccess,downloadPdf,uploadProductPhoto,attachProductPhotos,getState:()=>({activeShopId,sales,products,shopData}),setScope:id=>{activeShopId=id}};`);
+ w.eval(['shops-core.js','script.js','shops.js','invoice-pdf.js','sales-orders.js'].map(f=>fs.readFileSync(f,'utf8')).join('\n')+`
+ window.testApi={saveSale,refreshAll,shopTable,shopRpc,allShopRows,renderStaffAccess,downloadPdf,uploadProductPhoto,attachProductPhotos,getState:()=>({activeShopId,sales,products,shopData}),setScope:id=>{activeShopId=id}};`);
  await new Promise(resolve=>w.setTimeout(resolve,50));
  assert.equal(w.document.getElementById('loginMessage').textContent,'');
  return {dom,w,client};
 }
+test('ventes : compatibilité avant migration et total affiché',async()=>{
+ const {dom,w,client}=await boot('kh','admin','missing');try{
+  assert.equal(w.document.getElementById('addSaleItem').hidden,true);
+  const row=w.document.querySelector('.sale-item');
+  row.querySelector('select').value='p1';row.querySelector('select').dispatchEvent(new w.Event('change',{bubbles:true}));
+  row.querySelector('[data-field="quantity"]').value='2';row.querySelector('[data-field="quantity"]').dispatchEvent(new w.Event('input',{bubbles:true}));
+  assert.match(w.document.getElementById('saleTotal').textContent,/1.*000/);
+  client.rpc=async(name,args)=>{client.calls.push({rpc:name,args});return {data:'legacy-sale',error:null};};
+  await w.testApi.saveSale({preventDefault(){}});
+  const call=client.calls.find(c=>c.rpc==='create_sale');
+  assert.equal(call.args.p_quantity,2);assert.equal(call.args.p_shop_id,'kh');
+  assert.match(w.document.getElementById('saleFeedback').textContent,/succès/);
+ }finally{dom.window.close()}
+});
+
+test('ventes : double clic ignoré et réessai après erreur avec même identifiant',async()=>{
+ const {dom,w,client}=await boot('kh','admin',2);try{
+  const row=w.document.querySelector('.sale-item');
+  row.querySelector('select').value='p1';row.querySelector('select').dispatchEvent(new w.Event('change',{bubbles:true}));
+  let release;const calls=[];
+  client.rpc=(name,args)=>{calls.push({name,args});return new Promise(resolve=>{release=resolve});};
+  const pending=w.testApi.saveSale({preventDefault(){}});
+  await w.testApi.saveSale({preventDefault(){}});
+  assert.equal(calls.length,1);
+  release({data:null,error:{message:'Connexion interrompue'}});await pending;
+  const id=calls[0].args.p_request_id;
+  client.rpc=async(name,args)=>{calls.push({name,args});return {data:'order-sale',error:null};};
+  await w.testApi.saveSale({preventDefault(){}});
+  assert.equal(calls[1].args.p_request_id,id);
+  assert.equal(calls[1].name,'create_sale_order');
+  assert.equal(calls[1].args.p_items.length,1);
+  assert.match(w.document.getElementById('saleFeedback').textContent,/succès/);
+ }finally{dom.window.close()}
+});
+
 test('catégories : le bouton Ajouter utilise le champ visible dans chaque boutique',async()=>{
  for(const shop of ['kh','ad','am']){
   const {dom,w,client}=await boot(shop);try{

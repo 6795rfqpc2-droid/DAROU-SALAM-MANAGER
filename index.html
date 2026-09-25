@@ -467,75 +467,14 @@
                     </div>
 
 
-                    <div class="form-grid">
-
-                        <div class="form-group">
-                            <label for="saleProduct">
-                                Produit *
-                            </label>
-
-                            <select id="saleProduct" required>
-                                <option value="">
-                                    Sélectionner un produit
-                                </option>
-                            </select>
-                        </div>
-
-
-                        <div class="form-group">
-                            <label for="saleQuantity">
-                                Quantité *
-                            </label>
-
-                            <input
-                                type="number"
-                                id="saleQuantity"
-                                min="1"
-                                value="1"
-                                required
-                            >
-                        </div>
-
-
-                        <div class="form-group">
-                            <label for="saleCustomer">
-                                Client
-                            </label>
-
-                            <select id="saleCustomer">
-                                <option value="">
-                                    Client comptant / non enregistré
-                                </option>
-                            </select>
-                        </div>
-
-
-                        <div class="form-group">
-                            <label for="saleUnitPrice">
-                                Prix unitaire
-                            </label>
-
-                            <input
-                                type="number"
-                                id="saleUnitPrice"
-                                min="0"
-
-                            >
-                        </div>
-
-                    </div>
-
-
-                    <div class="sale-total-box">
-
-                        <span>Total de la vente</span>
-
-                        <strong id="saleTotal">
-                            0 F
-                        </strong>
-
-                    </div>
-
+                    <p id="saleMigrationNotice" class="shop-note" hidden></p>
+                    <div class="form-group"><label for="saleCustomer">Cliente (facultatif)</label>
+                      <select id="saleCustomer"><option value="">Client comptant / non enregistré</option></select></div>
+                    <div id="saleItems" aria-label="Articles de la commande"></div>
+                    <button type="button" id="addSaleItem" class="btn-secondary">+ Ajouter un produit</button>
+                    <div class="sale-total-box"><span>Total général</span><strong id="saleTotal" aria-live="polite">0 F</strong></div>
+                    <p class="shop-note">Vente réglée intégralement. Pour un acompte ou des paiements progressifs, utilisez les réservations.</p>
+                    <p id="saleFeedback" role="status" aria-live="polite"></p>
 
                     <div class="form-actions">
 
@@ -1760,11 +1699,13 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Notre JavaScript -->
-    <dialog id="invoiceModal"><h2>Facture</h2><div id="invoiceContent"></div><div class="shop-report-actions"><button id="invoicePdf" class="btn-primary">Télécharger en PDF</button><button id="invoicePrint" class="btn-secondary">Imprimer</button><button class="btn-secondary" onclick="document.getElementById('invoiceModal').close()">Fermer</button></div></dialog>
+    <dialog id="invoiceModal"><h2>Facture</h2><div id="invoiceContent"></div><div class="shop-report-actions"><button id="invoicePdf" class="btn-primary">Télécharger en PDF</button><button id="invoiceShare" class="btn-secondary">Partager / WhatsApp</button><button id="invoicePrint" class="btn-secondary">Imprimer</button><button class="btn-secondary" onclick="document.getElementById('invoiceModal').close()">Fermer</button></div></dialog>
     <div id="shopPrintArea"></div>
     <script src="shops-core.js"></script>
     <script src="script.js"></script>
     <script src="shops.js"></script>
+    <script src="invoice-pdf.js"></script>
+    <script src="sales-orders.js"></script>
 
 </body>
 </html>

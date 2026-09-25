@@ -3042,9 +3042,7 @@ tbody.innerHTML =
                 </td>
 
                 <td>
-                    ${formatMoney(
-                        sale.unit_price
-                    )}
+                    ${sale.items?.length>1 ? 'Voir facture' : formatMoney(sale.unit_price)}
                 </td>
 
                 <td>
@@ -3056,6 +3054,7 @@ tbody.innerHTML =
                 </td>
 
                 <td>
+                    ${shopData.factures.find(f=>f.sale_id===sale.id) ? `<button type="button" class="btn-secondary" data-invoice="${shopData.factures.find(f=>f.sale_id===sale.id).id}">Facture</button>` : ''}
                     ${
                         isAdmin()
                             ? `
