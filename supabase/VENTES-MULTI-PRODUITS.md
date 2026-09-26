@@ -1,5 +1,37 @@
 # Activer les commandes multi-produits
 
+## Si une première tentative a déjà créé des éléments
+
+Utiliser **`reprise-ventes-multi-produits.sql`**, et non le fichier d'installation
+initiale. Copier tout le fichier dans une nouvelle requête Supabase, puis Run.
+Le résultat attendu est `version_ventes = 2` et `rls_lignes = true`.
+Ce fichier peut être réexécuté sans dupliquer les ventes, factures ou lignes.
+
+`diagnostic-reprise-ventes.sql` est une lecture seule facultative pour transmettre
+l'état exact des colonnes, fonctions, contraintes, déclencheurs, policies et droits
+de la base. La présence de la table `vente_lignes` seule ne prouve pas que toutes
+les fonctions et sécurités sont installées.
+
+La reprise ajoute les colonnes absentes, complète les contraintes connues, réinstalle
+les fonctions compatibles et les permissions requises. Elle conserve les identifiants
+et valeurs de toutes les lignes déjà présentes. Elle n'exécute aucune vente et aucun
+mouvement de stock. Les anciennes ventes sans ligne reçoivent leur description ;
+les commandes multi-produits incomplètes ne peuvent être complétées qu'à partir de
+leur facture déjà enregistrée. Seul un tableau d'articles de facture vide ou absent
+peut être complété. Les autres informations de facture restent intactes.
+
+Le RLS de `vente_lignes` est activé et ses policies remplacées par la lecture limitée
+aux boutiques autorisées. Les écritures directes du navigateur sont interdites ;
+elles passent par les fonctions contrôlées. Les policies des autres tables ne sont
+pas remplacées. Les anciennes fonctions d'annulation non sécurisées restent interdites.
+
+La reprise compare avant/après les ventes, factures et lignes existantes, produits,
+stocks, clientes, réservations, paiements, boutiques, utilisateurs, affectations,
+compteurs et journal. Si un type est inattendu, si les articles se contredisent ou
+si une commande ne peut pas être reconstruite avec certitude, **tout le bloc est
+annulé** et un diagnostic est demandé. Ne supprimer aucune donnée pour contourner
+ce contrôle. Les tests utilisent une base locale fictive, pas la base Supabase réelle.
+
 ## Ce qui change
 
 Une commande crée une seule ligne principale dans `ventes`, plusieurs articles dans

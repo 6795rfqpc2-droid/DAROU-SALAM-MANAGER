@@ -33,9 +33,67 @@ test('migration réelle : conservation, RLS, RPC, factures et réservations',asy
  INSERT INTO public.customers(nom) VALUES('Ancien client');
  INSERT INTO public.ventes(produit_id,quantite,prix_unitaire,mode_paiement,vendeuse_id) VALUES('${prod}',1,500,'especes','${staff}');`);
  await db.exec(fs.readFileSync('supabase/migration-multi-boutiques.sql','utf8'));
+ const diagnosticSql=fs.readFileSync('supabase/diagnostic-reprise-ventes.sql','utf8');
+ const initialDiagnostic=(await db.query(diagnosticSql)).rows[0].diagnostic;
+ assert.equal(initialDiagnostic.tables.some(t=>t.table==='vente_lignes'),false);
  const before=await db.query('SELECT v.id,v.montant_total,p.stock_quantite,f.numero FROM ventes v JOIN produits p ON p.id=v.produit_id JOIN factures f ON f.sale_id=v.id');
  const migration=fs.readFileSync('supabase/migration-ventes-multi-produits.sql','utf8');
  const block=migration.match(/DO \$migration\$[\s\S]*?END \$migration\$;/)[0];
+ const recovery=fs.readFileSync('supabase/reprise-ventes-multi-produits.sql','utf8');
+ const recoveryBlock=recovery.match(/DO \$reprise\$[\s\S]*?END \$reprise\$;/)[0];
+ const schemaOnly=migration.slice(migration.indexOf('ALTER TABLE public.ventes ALTER COLUMN produit_id'),migration.indexOf('-- Copie descriptive uniquement'));
+ for(const [name,setup] of [
+  ['base avant migration',''],
+  ['une seule colonne déjà créée','ALTER TABLE public.ventes ADD COLUMN multi_produits boolean NOT NULL DEFAULT false;'],
+  ['colonnes et table sans lignes',schemaOnly],
+  ['migration entièrement appliquée',block],
+  ['RLS et policy inachevés',schemaOnly+`ALTER TABLE public.vente_lignes DISABLE ROW LEVEL SECURITY; CREATE POLICY trop_large ON public.vente_lignes FOR ALL TO authenticated USING(true) WITH CHECK(true); GRANT ALL ON public.vente_lignes TO authenticated;`]
+ ]) await t.test('reprise idempotente : '+name,async()=>{
+  await db.exec('BEGIN');
+  try {
+   if(setup)await db.exec(setup);
+   await db.exec(recoveryBlock);
+   const read=async()=> (await db.query(`SELECT jsonb_build_object('ventes',(SELECT jsonb_agg(to_jsonb(v) ORDER BY id) FROM public.ventes v),
+    'lignes',(SELECT jsonb_agg(to_jsonb(l) ORDER BY id) FROM public.vente_lignes l),
+    'factures',(SELECT jsonb_agg(to_jsonb(f) ORDER BY id) FROM public.factures f),
+    'produits',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM public.produits p)) AS snapshot`)).rows[0].snapshot;
+   const first=await read();await db.exec(recoveryBlock);assert.deepEqual(await read(),first);
+   assert.equal((await db.query('SELECT count(*)::int n FROM public.vente_lignes')).rows[0].n,1);
+   assert.equal((await db.query(`SELECT stock_quantite n FROM public.produits WHERE id='${prod}'`)).rows[0].n,29);
+   assert.equal((await db.query("SELECT relrowsecurity FROM pg_class WHERE oid='public.vente_lignes'::regclass")).rows[0].relrowsecurity,true);
+   assert.equal((await db.query("SELECT count(*)::int n FROM pg_policies WHERE schemaname='public' AND tablename='vente_lignes'")).rows[0].n,1);
+  } finally {await db.exec('ROLLBACK');}
+ });
+ await t.test('reprise : commande partiellement copiée et facture intacte',async()=>{
+  await db.exec('BEGIN');
+  try {
+   await db.exec(block);
+   await db.exec(`SELECT set_config('request.jwt.claim.sub','${admin}',true);`);
+   const items=JSON.stringify([{product_id:prod,quantity:2,unit_price:500},{product_id:prod,quantity:1,unit_price:450}]);
+   const id=(await db.query(`SELECT public.create_sale_order('${kh}',1,'${items}',gen_random_uuid()) id`)).rows[0].id;
+   const invoice=(await db.query(`SELECT * FROM public.factures WHERE sale_id='${id}'`)).rows[0];
+   const kept=(await db.query(`SELECT * FROM public.vente_lignes WHERE sale_id='${id}' AND position=1`)).rows[0];
+   // Base fictive seulement : simule une copie interrompue, jamais envoyé à Supabase.
+   await db.exec(`DELETE FROM public.vente_lignes WHERE sale_id='${id}' AND position=2`);
+   const stock=(await db.query(`SELECT stock_quantite FROM public.produits WHERE id='${prod}'`)).rows[0].stock_quantite;
+   await db.exec(recoveryBlock);await db.exec(recoveryBlock);
+   assert.deepEqual((await db.query(`SELECT * FROM public.factures WHERE sale_id='${id}'`)).rows[0],invoice);
+   assert.deepEqual((await db.query(`SELECT * FROM public.vente_lignes WHERE id='${kept.id}'`)).rows[0],kept);
+   assert.equal((await db.query(`SELECT count(*)::int n FROM public.vente_lignes WHERE sale_id='${id}'`)).rows[0].n,2);
+   assert.equal((await db.query(`SELECT stock_quantite FROM public.produits WHERE id='${prod}'`)).rows[0].stock_quantite,stock);
+  }finally{await db.exec('ROLLBACK');}
+ });
+ await t.test('reprise : incohérence détectée sans écrasement des lignes existantes',async()=>{
+  await db.exec('BEGIN');
+  try {
+   await db.exec(block);
+   await db.exec('UPDATE public.vente_lignes SET quantity=2; SAVEPOINT tentative');
+   await assert.rejects(db.exec(recoveryBlock),/total contradictoire/);
+   await db.exec('ROLLBACK TO SAVEPOINT tentative');
+   assert.equal((await db.query('SELECT quantity FROM public.vente_lignes')).rows[0].quantity,2);
+   assert.equal((await db.query(`SELECT stock_quantite n FROM public.produits WHERE id='${prod}'`)).rows[0].n,29);
+  }finally{await db.exec('ROLLBACK');}
+ });
  await t.test('migration autonome : contrôle de conservation et retour arrière complet',async()=>{
   const corrupted=block.replace('-- Vérifications :',`UPDATE public.produits SET stock_quantite=stock_quantite+1;\n-- Vérifications :`);
   await assert.rejects(db.exec(corrupted),/Contrôle de conservation échoué/);
@@ -50,6 +108,8 @@ test('migration réelle : conservation, RLS, RPC, factures et réservations',asy
   } finally {await db.exec('ROLLBACK');}
  });
  await db.exec(migration);
+ await db.exec(recovery);
+ assert.equal((await db.query(diagnosticSql)).rows[0].diagnostic.tables.find(t=>t.table==='vente_lignes').rls,true);
  assert.deepEqual((await db.query('SELECT v.id,v.montant_total,p.stock_quantite,f.numero FROM ventes v JOIN produits p ON p.id=v.produit_id JOIN factures f ON f.sale_id=v.id')).rows,before.rows);
  await db.exec(`CREATE SCHEMA storage;
  CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
@@ -106,6 +166,8 @@ test('migration réelle : conservation, RLS, RPC, factures et réservations',asy
   assert.equal((await scalar('SELECT count(*)::int n FROM shops')).n,1);
   assert.equal((await scalar(`SELECT count(*)::int n FROM produits WHERE shop_id='${ad}'`)).n,0);
   assert.equal((await scalar(`SELECT count(*)::int n FROM factures WHERE shop_id='${ad}'`)).n,0);
+  assert.equal((await scalar(`SELECT count(*)::int n FROM vente_lignes WHERE shop_id='${ad}'`)).n,0);
+  await fails(`UPDATE vente_lignes SET quantity=99`);
   await fails(`SELECT create_sale('${ad}','${prodAd}',null,1,300)`);
   await fails(`INSERT INTO customers(nom,shop_id) VALUES('Intrus','${ad}')`);
   await fails(`UPDATE profiles SET role='admin' WHERE id='${staff}'`);
@@ -198,6 +260,10 @@ test('migration réelle : conservation, RLS, RPC, factures et réservations',asy
   await fails(`SELECT record_versement('${am}',100,'Non')`);
  });
  await db.exec(`RESET ROLE; SET ROLE anon;`);
- await t.test('visiteur anonyme sans accès',async()=>{await fails('SELECT * FROM ventes'); await fails(`SELECT create_sale('${kh}','${prod}',null,1,500)`)});
+ await t.test('visiteur anonyme sans accès',async()=>{
+  await fails('SELECT * FROM ventes');await fails('SELECT * FROM vente_lignes');
+  await fails(`SELECT create_sale('${kh}','${prod}',null,1,500)`);
+  await fails(`SELECT create_sale_order('${kh}',null,'[]',gen_random_uuid())`);
+ });
  } finally {await db.close();}
 });
