@@ -8,7 +8,8 @@ initializeShops = async function() {
     await initializeShopsBeforeOrders();
     const {data,error} = await supabaseClient.rpc('sales_api_version');
     if (error && !['PGRST202','42883'].includes(error.code)) throw error;
-    multiSalesReady = !error && data === 2;
+    multiSalesReady = !error && data >= 2;
+    measuredUnitsReady = !error && data >= 3;
     document.getElementById('addSaleItem').hidden = !multiSalesReady;
     const notice=document.getElementById('saleMigrationNotice');
     notice.hidden=multiSalesReady;
@@ -16,7 +17,7 @@ initializeShops = async function() {
 };
 function saleProductOptions(selected='') {
     return '<option value="">Choisir un produit</option>'+products.filter(p=>(p.actif!==false && getAvailableStock(p)>0) || p.id===selected)
-        .map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} — stock : ${getAvailableStock(p)}</option>`).join('');
+        .map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} — stock : ${formatQuantity(getAvailableStock(p),p.unit)}</option>`).join('');
 }
 function addSaleItem() {
     const id=++saleRowSequence;
@@ -41,7 +42,7 @@ populateProductSelects=function() {
 function orderItems() {
     return [...document.querySelectorAll('#saleItems .sale-item')].map(row=>({
         product_id:row.querySelector('[data-field="product"]').value,
-        quantity:Number(row.querySelector('[data-field="quantity"]').value),
+        quantity:quantityNumber(row.querySelector('[data-field="quantity"]').value),
         unit_price:Number(row.querySelector('[data-field="price"]').value)
     }));
 }
@@ -49,7 +50,7 @@ updateSaleTotal=function() {
     let total=0;
     const rows=[...document.querySelectorAll('#saleItems .sale-item')];
     rows.forEach((row,i)=>{
-        const qty=Number(row.querySelector('[data-field="quantity"]').value);
+        const qty=quantityNumber(row.querySelector('[data-field="quantity"]').value);
         const price=Number(row.querySelector('[data-field="price"]').value);
         const subtotal=Math.round(qty*price*100)/100;
         row.querySelector('legend').textContent='Article '+(i+1);
@@ -76,10 +77,10 @@ saveSale=async function(event) {
         if (!items.length || (!multiSalesReady && items.length!==1)) throw new Error('Ajoutez un produit.');
         for (const item of items) {
             const p=products.find(p=>p.id===item.product_id);
-            if (!p || !Number.isInteger(item.quantity) || item.quantity<=0 || !Number.isFinite(item.unit_price)
+            if (!p || !validQuantity(item.quantity,p.unit) || !Number.isFinite(item.unit_price)
                 || item.unit_price<0 || Math.abs(item.unit_price*100-Math.round(item.unit_price*100))>0.00001)
                 throw new Error('Vérifiez le produit, la quantité et le prix de chaque article.');
-            totals.set(p.id,(totals.get(p.id)||0)+item.quantity);
+            totals.set(p.id,Math.round(((totals.get(p.id)||0)+item.quantity)*100)/100);
             if (totals.get(p.id)>getAvailableStock(p)) throw new Error('Stock insuffisant pour '+p.name+' (toutes les lignes cumulées).');
         }
         const customer=document.getElementById('saleCustomer').value;
@@ -107,7 +108,7 @@ saveSale=async function(event) {
     } finally {savingOrder=false; form.inert=false;}
 };
 function invoiceModel(f) {
-    const items=f.items?.length?f.items:[{product_name:f.product_name,quantity:f.quantity,unit_price:f.unit_price,total_amount:f.total_amount}];
+    const items=f.items?.length?f.items:[{product_name:f.product_name,quantity:f.quantity,unit_price:f.unit_price,total_amount:f.total_amount,unit:f.unit||'piece'}];
     const total=Number(f.total_amount), paid=Number(f.paid_amount??total);
     return {...f,items,total,paid,remaining:Math.max(0,total-paid),date:formatDateOnly(f.issued_at),
         cancelled:!!shopData.sales.find(s=>s.id===f.sale_id)?.cancelled_at};
@@ -119,7 +120,7 @@ function invoiceHtml(f) {
       <section class="invoice-client"><p class="invoice-kicker">CLIENTE</p><strong>${escapeHtml(m.customer_name)}</strong>
       ${m.customer_phone?'<p>'+escapeHtml(m.customer_phone)+'</p>':''}${m.customer_address?'<p>'+escapeHtml(m.customer_address)+'</p>':''}</section>
       <table class="invoice-table"><thead><tr><th>Produit</th><th>Quantité</th><th>Prix unitaire</th><th>Total</th></tr></thead><tbody>
-      ${m.items.map(l=>`<tr><td>${escapeHtml(l.product_name)}</td><td>${formatNumber(l.quantity)}</td><td>${formatMoney(l.unit_price)}</td><td>${formatMoney(l.total_amount)}</td></tr>`).join('')}</tbody></table>
+      ${m.items.map(l=>`<tr><td>${escapeHtml(l.product_name)}${l.unit==='metre'?`<small class="invoice-unit-detail">${formatQuantity(l.quantity,l.unit)} × ${formatMoney(l.unit_price)} = ${formatMoney(l.total_amount)}</small>`:''}</td><td>${formatQuantity(l.quantity,l.unit)}</td><td>${formatMoney(l.unit_price)}${l.unit==='metre'?' / m':''}</td><td>${formatMoney(l.total_amount)}</td></tr>`).join('')}</tbody></table>
       <section class="invoice-totals"><p><span>Total général</span><strong>${formatMoney(m.total)}</strong></p><p><span>Montant payé</span><span>${formatMoney(m.paid)}</span></p><p><span>Reste à payer</span><strong>${formatMoney(m.remaining)}</strong></p></section>
       <footer class="invoice-thanks">Merci pour votre confiance${m.legacy?'<small>Archive établie à partir des données disponibles.</small>':''}</footer></article>`;
 }
@@ -156,6 +157,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         if (event.target.matches('[data-field="product"]')) {
             const p=products.find(p=>p.id===event.target.value), row=event.target.closest('.sale-item');
             row.querySelector('[data-field="price"]').value=p?.selling_price??'';
+            updateOrderUnit(row,p);
         }
         updateSaleTotal();
     });

@@ -23,6 +23,7 @@ async function setup(db){
  await db.exec(`INSERT INTO auth.users VALUES('${admin}'); INSERT INTO profiles(id,nom_complet,role) VALUES('${admin}','Administratrice test','admin');`);
  await db.exec(fs.readFileSync('supabase/migration-multi-boutiques.sql','utf8'));
  await db.exec(fs.readFileSync('supabase/migration-ventes-multi-produits.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migration-unites-metres.sql','utf8'));
  await db.exec(`INSERT INTO produits(id,shop_id,nom_modele,prix,stock_quantite,purchase_price,categorie_id)
  SELECT x.id::uuid,x.shop::uuid,x.nom,x.prix,x.stock,x.cout,(SELECT id FROM categories WHERE shop_id=x.shop::uuid LIMIT 1) FROM (VALUES
  ('${p1}','${kh}','Ensemble brodé',5000,20,3000),('${p2}','${kh}','Foulard en soie',2500,10,1000),
@@ -77,7 +78,7 @@ function browserClient(){
   const url=new URL(route.request().url());
   if(url.hostname!=='darou.test')return route.fulfill({body:'',contentType:'text/javascript'});
   const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
-  if(!['index.html','style.css','script.js','shops-core.js','shops.js','invoice-pdf.js','sales-orders.js'].includes(name))return route.fulfill({status:404,body:''});
+  if(!['index.html','style.css','units.js','script.js','shops-core.js','shops.js','invoice-pdf.js','sales-orders.js'].includes(name))return route.fulfill({status:404,body:''});
   return route.fulfill({body:fs.readFileSync(name),contentType:name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});
  });
  await page.goto('https://darou.test');await page.locator('#shopOverview h2').waitFor();
@@ -92,7 +93,7 @@ function browserClient(){
  assert.match(await page.locator('#saleTotal').innerText(),/9.*000/);
  await page.locator('#saleForm [type="submit"]').click();await page.locator('#invoiceModal[open]').waitFor().catch(async e=>{console.error(await page.locator('#saleFeedback').innerText(),errors);throw e;});
  assert.equal(await page.locator('.invoice-table tbody tr').count(),1);
- assert.equal((await db.query(`SELECT stock_quantite n FROM produits WHERE id='${p1}'`)).rows[0].n,18);
+ assert.equal(Number((await db.query(`SELECT stock_quantite n FROM produits WHERE id='${p1}'`)).rows[0].n),18);
  await page.locator('#invoiceModal button').filter({hasText:'Fermer'}).click();
  await page.selectOption('#saleCustomer','1');
  await fillRow(0,p1,1,5000);await page.locator('#addSaleItem').click();await fillRow(1,p2,3,2400);
@@ -103,9 +104,9 @@ function browserClient(){
  assert.equal(await page.locator('.invoice-table tbody tr').count(),2);
  assert.match(await page.locator('#invoiceContent').innerText(),/Cliente de démonstration/);
  assert.match(await page.locator('#invoiceContent').innerText(),/Boutique Khady Faye/);
- assert.equal((await db.query(`SELECT stock_quantite n FROM produits WHERE id='${p2}'`)).rows[0].n,7);
- assert.equal((await db.query('SELECT count(*)::int n FROM ventes')).rows[0].n,2);
- assert.equal((await db.query('SELECT count(*)::int n FROM factures')).rows[0].n,2);
+ assert.equal(Number((await db.query(`SELECT stock_quantite n FROM produits WHERE id='${p2}'`)).rows[0].n),7);
+ assert.equal(Number((await db.query('SELECT count(*)::int n FROM ventes')).rows[0].n),2);
+ assert.equal(Number((await db.query('SELECT count(*)::int n FROM factures')).rows[0].n),2);
  await page.screenshot({path:'test-results/facture-commande-desktop.png',fullPage:true});
  const download=page.waitForEvent('download');await page.locator('#invoicePdf').click();
  await (await download).saveAs(path.resolve('test-results/facture-commande.pdf'));
@@ -125,14 +126,43 @@ function browserClient(){
  await page.locator('[data-page="history"]').click();
  await page.locator('button').filter({hasText:'Annuler la vente'}).first().click();
  await page.waitForFunction(()=>document.querySelector('#toastMessage').textContent.includes('stock restauré'));
- assert.equal((await db.query(`SELECT stock_quantite n FROM produits WHERE id='${p1}'`)).rows[0].n,18);
- assert.equal((await db.query(`SELECT stock_quantite n FROM produits WHERE id='${p2}'`)).rows[0].n,10);
- assert.equal((await db.query('SELECT count(*)::int n FROM factures')).rows[0].n,2);
+ assert.equal(Number((await db.query(`SELECT stock_quantite n FROM produits WHERE id='${p1}'`)).rows[0].n),18);
+ assert.equal(Number((await db.query(`SELECT stock_quantite n FROM produits WHERE id='${p2}'`)).rows[0].n),10);
+ assert.equal(Number((await db.query('SELECT count(*)::int n FROM factures')).rows[0].n),2);
  await page.selectOption('#shopSelector',ad);await page.waitForFunction(()=>document.querySelector('#shopOverview h2')?.textContent==='Boutique Adama Faye');
  await page.locator('[data-page="sales"]').click();await fillRow(0,'20000000-0000-4000-8000-000000000003',1,1000);
  await page.locator('#saleForm [type="submit"]').click();await page.locator('#invoiceModal[open]').waitFor();
  assert.match(await page.locator('#invoiceContent').innerText(),/Boutique Adama Faye/);
  assert.match(await page.locator('#invoiceContent').innerText(),/ADF-/);
+ await page.locator('#invoiceModal button').filter({hasText:'Fermer'}).click();
+ await page.locator('[data-page="products"]').click();await page.locator('#addProductButton').click();
+ assert.equal(await page.locator('#productUnit').inputValue(),'metre');
+ await page.locator('#productName').fill('Tissu X');
+ await page.locator('#productCategory').selectOption({index:1});
+ await page.locator('#productPurchasePrice').fill('1500');await page.locator('#productSellingPrice').fill('2500');
+ await page.locator('#productStock').fill('50');
+ await page.locator('#productForm [type="submit"]').click();await page.locator('#productModal').waitFor({state:'hidden'});
+ const tissu=(await db.query("SELECT id,unit FROM produits WHERE nom_modele='Tissu X'")).rows[0];
+ assert.equal(tissu.unit,'metre');
+ await page.locator('[data-page="sales"]').click();
+ await fillRow(0,tissu.id,'3,5',2500);
+ assert.match(await page.locator('#saleTotal').innerText(),/8.*750/);
+ await page.setViewportSize({width:390,height:844});
+ await page.screenshot({path:'test-results/metres-vente-mobile.png',fullPage:true});
+ await page.locator('#saleForm [type="submit"]').click();await page.locator('#invoiceModal[open]').waitFor();
+ assert.match(await page.locator('#invoiceContent').innerText(),/3,5 m/);
+ assert.equal(Number((await db.query('SELECT stock_quantite n FROM produits WHERE id=$1',[tissu.id])).rows[0].n),46.5);
+ await page.screenshot({path:'test-results/metres-facture-mobile.png',fullPage:true});
+ const metresDownload=page.waitForEvent('download');await page.locator('#invoicePdf').click();
+ await (await metresDownload).saveAs(path.resolve('test-results/facture-metres.pdf'));
+ await page.locator('#invoiceModal button').filter({hasText:'Fermer'}).click();
+ await page.setViewportSize({width:1440,height:1000});await page.locator('[data-page="history"]').click();
+ await page.locator('button').filter({hasText:'Annuler la vente'}).first().click();
+ await page.waitForFunction(()=>document.querySelector('#toastMessage').textContent.includes('stock restauré'));
+ assert.equal(Number((await db.query('SELECT stock_quantite n FROM produits WHERE id=$1',[tissu.id])).rows[0].n),50);
+ await page.locator('[data-page="dashboard"]').click();
+ assert.match(await page.locator('#shopOverview').innerText(),/50 m/);
+ assert.match(await page.locator('#shopOverview').innerText(),/pièces/);
  assert.deepEqual(errors,[]);
  console.log('Parcours navigateur + PostgreSQL : mono/multi-produits, stocks, facture, PDF, impression, mobile, partage et annulation validés.');
  }finally{if(browser)await browser.close();await db.close();}

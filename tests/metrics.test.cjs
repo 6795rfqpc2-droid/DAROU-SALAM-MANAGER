@@ -1,6 +1,20 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {summarize,dailyRevenue}=require('../shops-core');
+test('mètres et pièces : stocks séparés, chiffre d’affaires et coût décimaux',()=>{
+ const data={products:[{shop_id:'ad',unit:'metre',stock_quantite:46.5,reserved_quantity:1.25},
+  {shop_id:'ad',unit:'piece',stock_quantite:8,reserved_quantity:0}],reservations:[],payments:[],versements:[],
+  sales:[{id:'m',shop_id:'ad',montant_total:8950,quantite:1,date_vente:'2026-09-29'}],
+  factures:[{sale_id:'m',items:[{quantity:3.5,unit:'metre',purchase_price:1500},
+   {quantity:2,unit:'piece',purchase_price:50}]}]};
+ const m=summarize(data,'ad');
+ assert.deepEqual(m.stockByUnit,{metre:46.5,piece:8});
+ assert.deepEqual(m.availableByUnit,{metre:45.25,piece:8});
+ assert.deepEqual(m.soldByUnit,{metre:3.5,piece:2});
+ assert.equal(m.revenue,8950);assert.equal(m.profit,3600);
+ data.sales[0].cancelled_at='2026-09-29';
+ assert.deepEqual(summarize(data,'ad').soldByUnit,{});
+});
 test('commande multi-produits : une vente, coûts de chaque article et annulation',()=>{
  const data={products:[],reservations:[],payments:[],versements:[],
   sales:[{id:'a',shop_id:'kh',montant_total:1950,quantite:1,date_vente:'2026-09-24'}],

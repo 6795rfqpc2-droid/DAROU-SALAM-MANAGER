@@ -1275,3 +1275,4 @@ dialog::backdrop {
  .invoice-table tr, .invoice-totals, .invoice-thanks { break-inside: avoid; }
  .invoice-sheet { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+.invoice-unit-detail { display: block; margin-top: 6px; font-size: 10px; color: #713b51; }

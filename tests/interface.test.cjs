@@ -15,7 +15,7 @@ async function boot(selected='kh',role='admin',version=null){
  w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open')};
  w.URL.createObjectURL=blob=>{w.lastPdf=blob;return 'blob:test'};w.URL.revokeObjectURL=()=>{};
  w.HTMLAnchorElement.prototype.click=function(){};
- w.eval(['shops-core.js','script.js','shops.js','invoice-pdf.js','sales-orders.js'].map(f=>fs.readFileSync(f,'utf8')).join('\n')+`
+ w.eval(['shops-core.js','units.js','script.js','shops.js','invoice-pdf.js','sales-orders.js'].map(f=>fs.readFileSync(f,'utf8')).join('\n')+`
  window.testApi={saveSale,refreshAll,shopTable,shopRpc,allShopRows,renderStaffAccess,downloadPdf,uploadProductPhoto,attachProductPhotos,getState:()=>({activeShopId,sales,products,shopData}),setScope:id=>{activeShopId=id}};`);
  await new Promise(resolve=>w.setTimeout(resolve,50));
  assert.equal(w.document.getElementById('loginMessage').textContent,'');

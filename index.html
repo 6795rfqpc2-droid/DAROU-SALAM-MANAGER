@@ -1126,6 +1126,8 @@
 
 
                 <div class="form-group">
+                    <label for="productUnit">Unité de mesure</label><select id="productUnit"><option value="piece">Pièce</option><option value="metre">Mètre</option></select><small id="productUnitNote"></small>
+                </div><div class="form-group">
                     <label for="productPurchasePrice">
                         Prix d'achat *
                     </label>
@@ -1133,6 +1135,7 @@
                     <input
                         type="number"
                         id="productPurchasePrice"
+                        step="0.01"
                         min="0"
                         required
                     >
@@ -1147,6 +1150,7 @@
                     <input
                         type="number"
                         id="productSellingPrice"
+                        step="0.01"
                         min="0"
                         required
                     >
@@ -1514,6 +1518,7 @@
                 <input
                     type="number"
                     id="reservationAdvance"
+                    step="0.01"
                     min="0"
                     value="0"
                     required
@@ -1632,6 +1637,7 @@
                 <input
                     type="number"
                     id="paymentAmount"
+                    step="0.01"
                     min="1"
                     required
                 >
@@ -1702,6 +1708,7 @@
     <dialog id="invoiceModal"><h2>Facture</h2><div id="invoiceContent"></div><div class="shop-report-actions"><button id="invoicePdf" class="btn-primary">Télécharger en PDF</button><button id="invoiceShare" class="btn-secondary">Partager / WhatsApp</button><button id="invoicePrint" class="btn-secondary">Imprimer</button><button class="btn-secondary" onclick="document.getElementById('invoiceModal').close()">Fermer</button></div></dialog>
     <div id="shopPrintArea"></div>
     <script src="shops-core.js"></script>
+    <script src="units.js"></script>
     <script src="script.js"></script>
     <script src="shops.js"></script>
     <script src="invoice-pdf.js"></script>

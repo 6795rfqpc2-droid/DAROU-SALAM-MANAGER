@@ -44,7 +44,9 @@
         }
         y+=18;ensure(60);tableHead();
         for(const item of m.items){
-            const names=wrap(item.product_name,231,10), qty=wrap(item.quantity,42,9), unit=wrap(money(item.unit_price),104,9), total=wrap(money(item.total_amount),82,9);
+            const quantity=Number(item.quantity).toLocaleString('fr-FR',{maximumFractionDigits:2})+(item.unit==='metre'?' m':'');
+            const description=item.product_name+(item.unit==='metre'?'\n'+quantity+' × '+money(item.unit_price)+' = '+money(item.total_amount):'');
+            const names=wrap(description,231,10), qty=wrap(quantity,42,9), unit=wrap(money(item.unit_price)+(item.unit==='metre'?' / m':''),104,9), total=wrap(money(item.total_amount),82,9);
             const count=Math.max(names.length,qty.length,unit.length,total.length);
             // Long descriptions may continue on the next page without clipping.
             for(let i=0;i<count;i++){

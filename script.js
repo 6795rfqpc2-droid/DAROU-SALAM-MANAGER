@@ -52,7 +52,7 @@ function formatMoney(value) {
 
     return (
         new Intl.NumberFormat("fr-FR", {
-            maximumFractionDigits: 0
+            maximumFractionDigits: 2
         }).format(number) + " F"
     );
 }
@@ -110,8 +110,8 @@ function normalizeText(value) {
 function getAvailableStock(product) {
     return Math.max(
         0,
-        Number(product.stock_quantity || 0) -
-        Number(product.reserved_quantity || 0)
+        Math.round((Number(product.stock_quantity || 0) -
+        Number(product.reserved_quantity || 0)) * 100) / 100
     );
 }
 
@@ -916,7 +916,7 @@ function renderProducts() {
                             ${
                                 available <= 0
                                     ? "Rupture"
-                                    : `${formatNumber(available)} disponible(s)`
+                                    : `${formatQuantity(available,product.unit)} disponible(s)`
                             }
                         </span>
 
@@ -946,14 +946,14 @@ function renderProducts() {
                     <div class="product-prices">
 
                         <div>
-                            <small>Achat</small>
+                            <small>Achat ${product.unit==='metre'?'par mètre':'par pièce'}</small>
                             <strong>
                                 ${product.purchase_price == null ? "Non renseigné" : formatMoney(product.purchase_price)}
                             </strong>
                         </div>
 
                         <div>
-                            <small>Vente</small>
+                            <small>Vente ${product.unit==='metre'?'par mètre':'par pièce'}</small>
                             <strong>
                                 ${formatMoney(product.selling_price)}
                             </strong>
@@ -966,7 +966,7 @@ function renderProducts() {
 
                         <span>
                             Stock :
-                            ${formatNumber(product.stock_quantity)}
+                            ${formatQuantity(product.stock_quantity,product.unit)}
                         </span>
 
                         ${
@@ -974,7 +974,7 @@ function renderProducts() {
                                 ? `
                                     <span>
                                         Réservé :
-                                        ${formatNumber(reserved)}
+                                        ${formatQuantity(reserved,product.unit)}
                                     </span>
                                 `
                                 : ""
@@ -1101,6 +1101,7 @@ function openProductModal(product = null) {
         product?.description || "";
 
 
+    configureProductUnit(product);
     const preview = $("#productPhotoPreview");
 
     if (preview) {
@@ -1238,10 +1239,7 @@ async function saveProduct(event) {
         Number($("#productSellingPrice").value || 0);
 
     const stock =
-        Number.parseInt(
-            $("#productStock").value || "0",
-            10
-        );
+        quantityNumber($("#productStock").value || "0");
 
     const description =
         $("#productDescription").value.trim() || null;
@@ -1265,10 +1263,10 @@ async function saveProduct(event) {
     }
 
 
-    if (stock < 0) {
+    if (!validQuantity(stock, $("#productUnit").value, true)) {
         showMessage(
             message,
-            "Le stock ne peut pas être négatif."
+            "Stock invalide : entier pour une pièce, deux décimales maximum pour un mètre."
         );
         return;
     }
@@ -1316,6 +1314,7 @@ async function saveProduct(event) {
 
         // Colonnes réelles de public.produits dans ce projet Supabase
         const payload = {
+            ...(measuredUnitsReady ? {unit: $("#productUnit").value} : {}),
             nom_modele: name,
             categorie_id: categoryId,
             prix: sellingPrice,
@@ -1488,13 +1487,13 @@ async function restockProduct(id) {
 
 
     const quantity =
-        Number.parseInt(quantityText, 10);
+        quantityNumber(quantityText);
 
 
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    if (!validQuantity(quantity,product.unit)) {
 
         showToast(
-            "Entre une quantité entière supérieure à 0."
+            "Quantité invalide pour cette unité de mesure."
         );
 
         return;
@@ -1503,7 +1502,7 @@ async function restockProduct(id) {
 
     const { error } =
         await shopRpc(
-            "restock_product",
+            measuredUnitsReady ? "restock_product_measured" : "restock_product",
             {
                 p_product_id: id,
                 p_quantity: quantity
@@ -1533,7 +1532,7 @@ async function restockProduct(id) {
     await loadProducts();
 
     showToast(
-        `${quantity} produit(s) ajouté(s) au stock.`
+        `${formatQuantity(quantity,product.unit)} ajouté(s) au stock.`
     );
 }
 
@@ -1876,7 +1875,7 @@ function populateProductSelects() {
                     <option value="${product.id}">
                         ${escapeHtml(product.name)}
                         — ${formatMoney(product.selling_price)}
-                        — Stock : ${available}
+                        — Stock : ${formatQuantity(available,product.unit)}
                     </option>
                 `;
 
@@ -1908,7 +1907,7 @@ function populateProductSelects() {
                     <option value="${product.id}">
                         ${escapeHtml(product.name)}
                         — ${formatMoney(product.selling_price)}
-                        — Disponible : ${available}
+                        — Disponible : ${formatQuantity(available,product.unit)}
                     </option>
                 `;
 
@@ -2177,10 +2176,7 @@ function updateReservationTotal() {
 
 
     const quantity =
-        Number.parseInt(
-            $("#reservationQuantity")?.value || "0",
-            10
-        );
+        quantityNumber($("#reservationQuantity")?.value || "0");
 
 
     const advance =
@@ -2209,8 +2205,10 @@ function updateReservationTotal() {
     }
 
 
-    const available =
-        getAvailableStock(product);
+    quantityInput($("#reservationQuantity"),product.unit);
+    $("#reservationQuantity").min=product.unit==='metre'?'0.01':'1';
+    document.querySelector('label[for="reservationQuantity"]').textContent=product.unit==='metre'?'Métrage (m)':'Quantité';
+    const available=getAvailableStock(product);
 
 
     if (quantity > available) {
@@ -2221,15 +2219,12 @@ function updateReservationTotal() {
 
 
     const finalQuantity =
-        Number.parseInt(
-            $("#reservationQuantity").value || "0",
-            10
-        );
+        quantityNumber($("#reservationQuantity").value || "0");
 
 
     const total =
-        Number(product.selling_price || 0) *
-        finalQuantity;
+        Math.round(Number(product.selling_price || 0) *
+        finalQuantity * 100) / 100;
 
 
     let finalAdvance =
@@ -2298,10 +2293,7 @@ async function saveReservation(event) {
 
 
     const quantity =
-        Number.parseInt(
-            $("#reservationQuantity").value,
-            10
-        );
+        quantityNumber($("#reservationQuantity").value || "0");
 
 
     const advance =
@@ -2348,7 +2340,7 @@ async function saveReservation(event) {
     }
 
 
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    if (!validQuantity(quantity,product.unit)) {
 
         showMessage(
             message,
@@ -2375,8 +2367,8 @@ async function saveReservation(event) {
 
 
     const total =
-        Number(product.selling_price || 0) *
-        quantity;
+        Math.round(Number(product.selling_price || 0) *
+        quantity * 100) / 100;
 
 
     if (advance < 0 || advance > total) {
@@ -2392,7 +2384,7 @@ async function saveReservation(event) {
 
     const { data, error } =
         await shopRpc(
-            "create_reservation",
+            measuredUnitsReady ? "create_reservation_measured" : "create_reservation",
             {
                 p_customer_id: Number(customerId),
                 p_product_id: productId,
@@ -2574,9 +2566,7 @@ function renderPayments() {
                     </td>
 
                     <td>
-                        ${formatNumber(
-                            reservation.quantity
-                        )}
+                        ${formatQuantity(reservation.quantity,reservation.unit)}
                     </td>
 
                     <td>
@@ -3036,9 +3026,7 @@ tbody.innerHTML =
                 </td>
 
                 <td>
-                    ${formatNumber(
-                        sale.quantity
-                    )}
+                    ${formatUnitGroups(ShopMetrics.unitTotals(sale.items?.length?sale.items:[{quantity:sale.quantity,unit:'piece'}],'quantity'))}
                 </td>
 
                 <td>
@@ -3122,19 +3110,19 @@ function renderStock() {
 
     if ($("#stockTotal")) {
         $("#stockTotal").textContent =
-            formatNumber(totalStock);
+            formatUnitGroups(ShopMetrics.unitTotals(products,'stock_quantity'));
     }
 
 
     if ($("#stockAvailable")) {
         $("#stockAvailable").textContent =
-            formatNumber(totalAvailable);
+            formatUnitGroups(ShopMetrics.unitTotals(products,p=>getAvailableStock(p)));
     }
 
 
     if ($("#stockReserved")) {
         $("#stockReserved").textContent =
-            formatNumber(totalReserved);
+            formatUnitGroups(ShopMetrics.unitTotals(products,'reserved_quantity'));
     }
 
 
@@ -3166,20 +3154,16 @@ function renderStock() {
                     </td>
 
                     <td>
-                        ${formatNumber(
-                            product.stock_quantity
-                        )}
+                        ${formatQuantity(product.stock_quantity,product.unit)}
                     </td>
 
                     <td>
-                        ${formatNumber(
-                            product.reserved_quantity
-                        )}
+                        ${formatQuantity(product.reserved_quantity,product.unit)}
                     </td>
 
                     <td>
                         <strong>
-                            ${formatNumber(available)}
+                            ${formatQuantity(available,product.unit)}
                         </strong>
                     </td>
 
@@ -3295,7 +3279,7 @@ function renderDashboard() {
 
     if ($("#dashboardStock")) {
         $("#dashboardStock").textContent =
-            formatNumber(availableStock);
+            formatUnitGroups(ShopMetrics.unitTotals(products,p=>getAvailableStock(p)));
     }
 
 
@@ -3319,7 +3303,7 @@ function renderDashboard() {
 
     if ($("#dashboardReserved")) {
         $("#dashboardReserved").textContent =
-            formatNumber(reservedQuantity);
+            formatUnitGroups(ShopMetrics.unitTotals(activeReservations,'quantity'));
     }
 
 

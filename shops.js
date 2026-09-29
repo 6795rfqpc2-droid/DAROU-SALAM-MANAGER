@@ -4,7 +4,7 @@ let activeShopId = null;
 let shopData = {products: [], sales: [], reservations: [], payments: [], versements: [], factures: []};
 let shopReady = false;
 let refreshPromise = null;
-const shopRpcNames = new Set(['create_sale','create_sale_order','restock_product','create_reservation','add_payment',
+const shopRpcNames = new Set(['restock_product_measured','create_reservation_measured','create_sale_measured','create_sale','create_sale_order','restock_product','create_reservation','add_payment',
     'mark_reservation_remis','cancel_reservation','supprimer_vente_admin','record_versement']);
 
 function currentShopName() {
@@ -193,14 +193,14 @@ function renderStatisticsChart() {
 }
 renderTopProducts = function() {
     const totals = new Map();
-    for (const order of sales) for (const sale of order.items?.length ? order.items.map(l=>({shop_id:order.shop_id,product_id:l.product_id,quantity:l.quantity,products:{name:l.product_name}})) : [order]) {
+    for (const order of sales) for (const sale of order.items?.length ? order.items.map(l=>({shop_id:order.shop_id,product_id:l.product_id,quantity:l.quantity,products:{name:l.product_name},unit:l.unit})) : [order]) {
         const key = sale.shop_id + ':' + sale.product_id;
-        const row = totals.get(key) || {name: sale.products?.name || 'Produit', shop_id: sale.shop_id, quantity: 0};
+        const row = totals.get(key) || {name: sale.products?.name || 'Produit', shop_id: sale.shop_id, unit:sale.unit||'piece', quantity: 0};
         row.quantity += Number(sale.quantity);
         totals.set(key, row);
     }
     document.getElementById('topProducts').innerHTML = [...totals.values()].sort((a,b)=>b.quantity-a.quantity).slice(0,10)
-        .map(row=>`<div class="list-item"><strong>${escapeHtml(row.name)}${!activeShopId ? ' — '+escapeHtml(availableShops.find(s=>s.id===row.shop_id)?.nom) : ''}</strong><span>${formatNumber(row.quantity)} vendu(s)</span></div>`).join('') || '<p>Aucune vente.</p>';
+        .map(row=>`<div class="list-item"><strong>${escapeHtml(row.name)}${!activeShopId ? ' — '+escapeHtml(availableShops.find(s=>s.id===row.shop_id)?.nom) : ''}</strong><span>${formatQuantity(row.quantity,row.unit)} vendu(s)</span></div>`).join('') || '<p>Aucune vente.</p>';
 };
 
 function metricsCards(m) {
@@ -209,7 +209,7 @@ function metricsCards(m) {
         ['Encaissements clients', formatMoney(m.receipts)], ['Versements', formatMoney(m.remittances)],
         ['Reste à verser', formatMoney(m.toRemit)],
         ['Bénéfice estimé', m.unknownCosts ? 'Coûts incomplets' : formatMoney(m.profit)],
-        ['Stock actuel', formatNumber(m.stock)], ['Stock disponible', formatNumber(m.available)]
+        ['Stock actuel', formatUnitGroups(m.stockByUnit)], ['Stock disponible', formatUnitGroups(m.availableByUnit)], ['Quantités vendues', formatUnitGroups(m.soldByUnit)]
     ];
     return cards.map(([label,value]) => `<div class="shop-metric"><span>${label}</span><strong>${value}</strong></div>`).join('');
 }
@@ -223,7 +223,7 @@ function renderShopReports() {
     const metrics = ShopMetrics.summarize(shopData, activeShopId);
     document.getElementById('shopOverview').innerHTML = `<h2>${escapeHtml(currentShopName())}</h2>
         <div class="shop-metrics">${metricsCards(metrics)}</div><h3>Chiffre d’affaires par boutique</h3>${comparisonHtml()}
-        <h3>Alertes de stock par boutique</h3>${metrics.alerts.length ? '<ul>' + metrics.alerts.map(p => `<li>${escapeHtml(availableShops.find(s=>s.id===p.shop_id)?.nom)} — ${escapeHtml(p.nom_modele)} : ${Number(p.stock_quantite)-Number(p.reserved_quantity)} disponible(s)</li>`).join('') + '</ul>' : '<p>Aucune alerte.</p>'}
+        <h3>Alertes de stock par boutique</h3>${metrics.alerts.length ? '<ul>' + metrics.alerts.map(p => `<li>${escapeHtml(availableShops.find(s=>s.id===p.shop_id)?.nom)} — ${escapeHtml(p.nom_modele)} : ${formatQuantity(Number(p.stock_quantite)-Number(p.reserved_quantity),p.unit)} disponible(s)</li>`).join('') + '</ul>' : '<p>Aucune alerte.</p>'}
         <p class="shop-note">Les versements sont les remises à l’administratrice. Les encaissements comprennent les avances clients sans compter deux fois les réservations remises. Un solde négatif indique des versements supérieurs aux encaissements enregistrés.</p>`;
     renderMonthlyReport(); renderRemittances(); renderInvoices();
 }
@@ -260,7 +260,7 @@ function reportLines() {
         'Encaissements clients : '+formatMoney(m.receipts),'Versements : '+formatMoney(m.remittances),
         'Reste à verser du mois (hors solde antérieur) : '+formatMoney(m.toRemit),
         'Bénéfice estimé avant charges : '+(m.unknownCosts?'indéterminé — coûts historiques incomplets':formatMoney(m.profit)),
-        'Stock actuel (pas le stock de clôture du mois) : '+m.stock,
+        'Stock actuel (pas le stock de clôture du mois) : '+formatUnitGroups(m.stockByUnit),
         'Ventes annulées exclues selon leur état actuel.',
         ...availableShops.filter(s=>!activeShopId||s.id===activeShopId).map(s=>s.nom+' : '+formatMoney(ShopMetrics.summarize(shopData,s.id,reportMonth()).revenue))];
 }

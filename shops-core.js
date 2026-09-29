@@ -1,5 +1,10 @@
 /* Calculs purs partagés par l'interface, les rapports et les tests. */
 (function(root) {
+    function unitTotals(rows,key) {
+        const totals={};
+        for(const r of rows){const u=r.unit||'piece';totals[u]=Math.round(((totals[u]||0)+Number(typeof key==='function'?key(r):r[key]||0))*100)/100;}
+        return totals;
+    }
     function summarize(data, shopId = null, month = '') {
         const scoped = rows => rows.filter(row => !shopId || row.shop_id === shopId);
         const dated = (rows, key) => scoped(rows).filter(row => !month || String(row[key]).startsWith(month));
@@ -19,7 +24,11 @@
         }
         const receipts = sum(sales.filter(row => !linked.has(row.id)), 'montant_total') + sum(payments, 'amount');
         const stock = scoped(data.products);
+        const sold=sales.flatMap(s=>invoices.get(s.id)?.items||[{quantity:s.quantite,unit:'piece'}]);
         return {
+            stockByUnit:unitTotals(stock,'stock_quantite'),
+            availableByUnit:unitTotals(stock,p=>Number(p.stock_quantite)-Number(p.reserved_quantity||0)),
+            soldByUnit:unitTotals(sold,'quantity'),
             revenue: sum(sales, 'montant_total'), salesCount: sales.length,
             receipts, remittances: sum(remittances, 'amount'),
             toRemit: receipts - sum(remittances, 'amount'), profit, unknownCosts,
@@ -44,7 +53,7 @@
         }
         return totals;
     }
-    const api = {summarize,dailyRevenue};
+    const api = {summarize,dailyRevenue,unitTotals};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.ShopMetrics = api;
 })(typeof window !== 'undefined' ? window : globalThis);
