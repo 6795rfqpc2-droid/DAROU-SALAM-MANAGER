@@ -14,7 +14,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
    const url=new URL(route.request().url());
    if(url.hostname!=='darou.test')return route.fulfill({body:'',contentType:'text/javascript'});
    const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
-   if(!['index.html','units.js','script.js','shops.js','shops-core.js','style.css','invoice-pdf.js','sales-orders.js'].includes(name))return route.fulfill({status:404,body:''});
+   if(!['index.html','units.js','script.js','shops.js','shops-core.js','style.css','invoice-pdf.js','sales-orders.js','sale-payments.js'].includes(name))return route.fulfill({status:404,body:''});
    await route.fulfill({body:fs.readFileSync(name),contentType:name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});
   });
   await page.goto('http://darou.test');

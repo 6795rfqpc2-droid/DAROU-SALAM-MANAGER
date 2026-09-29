@@ -10,6 +10,12 @@ initializeShops = async function() {
     if (error && !['PGRST202','42883'].includes(error.code)) throw error;
     multiSalesReady = !error && data >= 2;
     measuredUnitsReady = !error && data >= 3;
+    const paymentVersion=await supabaseClient.rpc('payment_api_version');
+    if(paymentVersion.error && !['PGRST202','42883'].includes(paymentVersion.error.code)) throw paymentVersion.error;
+    salePaymentsReady=!paymentVersion.error && paymentVersion.data>=1;
+    document.getElementById('salePaymentFields').hidden=!salePaymentsReady;
+    document.getElementById('salePaymentFields').disabled=!salePaymentsReady;
+    document.getElementById('paymentMigrationNotice').hidden=salePaymentsReady;
     document.getElementById('addSaleItem').hidden = !multiSalesReady;
     const notice=document.getElementById('saleMigrationNotice');
     notice.hidden=multiSalesReady;
@@ -59,6 +65,7 @@ updateSaleTotal=function() {
         total+=Number.isFinite(subtotal)?subtotal:0;
     });
     document.getElementById('saleTotal').textContent=formatMoney(total);
+    updateSalePaymentFields(total);
 };
 function resetOrder() {
     document.getElementById('saleItems').replaceChildren();
@@ -84,11 +91,14 @@ saveSale=async function(event) {
             if (totals.get(p.id)>getAvailableStock(p)) throw new Error('Stock insuffisant pour '+p.name+' (toutes les lignes cumulées).');
         }
         const customer=document.getElementById('saleCustomer').value;
-        const payload={p_customer_id:customer?Number(customer):null,p_items:items};
+        const payload={p_customer_id:customer?Number(customer):null,p_items:items,
+            ...(salePaymentsReady?{p_payment:salePaymentPayload()}: {})};
         const fingerprint=JSON.stringify({shop:activeShopId,...payload});
         if (!pendingOrder || pendingOrder.fingerprint!==fingerprint) pendingOrder={fingerprint,id:crypto.randomUUID()};
         savingOrder=true; form.inert=true; feedback.textContent='Enregistrement de la commande…';
-        const result=multiSalesReady
+        const result=salePaymentsReady
+            ? await shopRpc('create_sale_with_payment',{...payload,p_request_id:pendingOrder.id})
+            : multiSalesReady
             ? await shopRpc('create_sale_order',{...payload,p_request_id:pendingOrder.id})
             : await shopRpc('create_sale',{p_customer_id:payload.p_customer_id,p_product_id:items[0].product_id,p_quantity:items[0].quantity,p_unit_price:items[0].unit_price});
         if (result.error) throw result.error;
@@ -108,17 +118,20 @@ saveSale=async function(event) {
     } finally {savingOrder=false; form.inert=false;}
 };
 function invoiceModel(f) {
+    if(f.receiptModel) return f.receiptModel;
     const items=f.items?.length?f.items:[{product_name:f.product_name,quantity:f.quantity,unit_price:f.unit_price,total_amount:f.total_amount,unit:f.unit||'piece'}];
     const total=Number(f.total_amount), paid=Number(f.paid_amount??total);
-    return {...f,items,total,paid,remaining:Math.max(0,total-paid),date:formatDateOnly(f.issued_at),
+    return {...f,items,total,paid,remaining:Math.max(0,total-paid),date:formatDateOnly(f.issued_at),...paymentInvoiceDetails(f),
         cancelled:!!shopData.sales.find(s=>s.id===f.sale_id)?.cancelled_at};
 }
 function invoiceHtml(f) {
     const m=invoiceModel(f);
-    return `<article class="invoice-sheet"><header class="invoice-heading"><div><p class="invoice-kicker">DAROU SALAM MANAGER</p><h2>${escapeHtml(m.shop_name)}</h2></div><div><h3>FACTURE</h3><p class="invoice-number">${escapeHtml(m.numero)}</p><p>${escapeHtml(m.date)}</p></div></header>
+    return `<article class="invoice-sheet"><header class="invoice-heading"><div><p class="invoice-kicker">Darou Salam Business</p><h2>${escapeHtml(m.shop_name)}</h2></div><div><h3>${escapeHtml(m.document_title||'FACTURE')}</h3><p class="invoice-number">${escapeHtml(m.numero)}</p><p>${escapeHtml(m.date)}</p></div></header>
       ${m.cancelled?'<p class="invoice-cancelled">VENTE ANNULÉE — document conservé</p>':''}
       <section class="invoice-client"><p class="invoice-kicker">CLIENTE</p><strong>${escapeHtml(m.customer_name)}</strong>
       ${m.customer_phone?'<p>'+escapeHtml(m.customer_phone)+'</p>':''}${m.customer_address?'<p>'+escapeHtml(m.customer_address)+'</p>':''}</section>
+      ${m.payment_note?`<p class="invoice-payment-note">${escapeHtml(m.payment_note)}</p>`:''}
+      ${m.receipt_amount!=null?`<p class="invoice-receipt-amount">Versement reçu : <strong>${formatMoney(m.receipt_amount)}</strong></p>`:''}
       <table class="invoice-table"><thead><tr><th>Produit</th><th>Quantité</th><th>Prix unitaire</th><th>Total</th></tr></thead><tbody>
       ${m.items.map(l=>`<tr><td>${escapeHtml(l.product_name)}${l.unit==='metre'?`<small class="invoice-unit-detail">${formatQuantity(l.quantity,l.unit)} × ${formatMoney(l.unit_price)} = ${formatMoney(l.total_amount)}</small>`:''}</td><td>${formatQuantity(l.quantity,l.unit)}</td><td>${formatMoney(l.unit_price)}${l.unit==='metre'?' / m':''}</td><td>${formatMoney(l.total_amount)}</td></tr>`).join('')}</tbody></table>
       <section class="invoice-totals"><p><span>Total général</span><strong>${formatMoney(m.total)}</strong></p><p><span>Montant payé</span><span>${formatMoney(m.paid)}</span></p><p><span>Reste à payer</span><strong>${formatMoney(m.remaining)}</strong></p></section>
@@ -130,6 +143,7 @@ function saveInvoiceBlob(blob,name) {
 }
 function openInvoice(f) {
     const modal=document.getElementById('invoiceModal'), m=invoiceModel(f);
+    modal.querySelector('h2').textContent=m.document_title||'Facture';
     document.getElementById('invoiceContent').innerHTML=invoiceHtml(f);
     document.getElementById('invoicePdf').onclick=()=>saveInvoiceBlob(InvoicePdf.create(m),m.numero);
     document.getElementById('invoicePrint').onclick=()=>{

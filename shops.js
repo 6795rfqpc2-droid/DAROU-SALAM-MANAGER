@@ -5,7 +5,7 @@ let shopData = {products: [], sales: [], reservations: [], payments: [], verseme
 let shopReady = false;
 let refreshPromise = null;
 const shopRpcNames = new Set(['restock_product_measured','create_reservation_measured','create_sale_measured','create_sale','create_sale_order','restock_product','create_reservation','add_payment',
-    'mark_reservation_remis','cancel_reservation','supprimer_vente_admin','record_versement']);
+    'mark_reservation_remis','cancel_reservation','supprimer_vente_admin','record_versement','create_sale_with_payment','add_sale_payment']);
 
 function currentShopName() {
     return activeShopId ? availableShops.find(s => s.id === activeShopId)?.nom || 'Boutique' : 'Rapport global DAROU SALAM';
@@ -114,11 +114,13 @@ refreshAll = async function() {
             const [categoryRows, customerRows, productRows, saleRows, reservationRows, payments, versements, factures] = await Promise.all([
                 allShopRows('categories'), allShopRows('customers'), allShopRows('produits'), allShopRows('ventes'),
                 allShopRows('reservations'), allShopRows('payments'), allShopRows('versements'), allShopRows('factures')]);
+            const [paymentAccounts,paymentEntries] = salePaymentsReady ? await Promise.all([
+                allShopRows('sale_payment_accounts'),allShopRows('sale_payment_entries')]) : [[],[]];
             const withPhotos = await attachProductPhotos(productRows);
-            hydrateShopData({products: withPhotos, sales: saleRows, reservations: reservationRows, payments, versements, factures}, categoryRows, customerRows);
+            hydrateShopData({products: withPhotos, sales: saleRows, reservations: reservationRows, payments, versements, factures,paymentAccounts,paymentEntries}, categoryRows, customerRows);
             renderCategories(); populateCategorySelects(); populateProductSelects(); populateCustomerSelects();
             renderDashboard(); renderProducts(); renderCustomers(); renderStock(); renderSalesHistory();
-            renderPayments(); renderStatistics(); updateUserInterface(); renderShopReports();
+            renderPayments(); renderStatistics(); updateUserInterface(); renderShopReports(); renderSalePayments();
             if (isAdmin()) {
                 await loadAuditLogs();
                 if (document.getElementById('staffPage').classList.contains('active')) await renderStaffAccess();

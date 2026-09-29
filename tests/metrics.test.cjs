@@ -1,6 +1,25 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {summarize,dailyRevenue}=require('../shops-core');
+test('paiements : encaissements datés sans compter deux fois la vente, soldes et échéances',()=>{
+ const data={products:[],reservations:[],payments:[],versements:[],factures:[],sales:[{id:'v',shop_id:'kh',montant_total:10000,date_vente:'2026-08-20'}],
+  paymentAccounts:[{id:'a',sale_id:'v',shop_id:'kh',total_amount:10000,next_due_date:'2026-09-28'}],
+  paymentEntries:[{account_id:'a',shop_id:'kh',sequence:1,amount:2000,paid_on:'2026-08-20'},
+   {account_id:'a',shop_id:'kh',sequence:2,amount:3000,paid_on:'2026-09-01'}]};
+ assert.equal(summarize(data,'kh').receipts,5000);
+ assert.equal(summarize(data,'kh','2026-08').receipts,2000);
+ assert.equal(summarize(data,'kh','2026-09').receipts,3000);
+ assert.equal(summarize(data,'kh','2026-09').revenue,0);
+ const balances=require('../shops-core').paymentBalances;
+ assert.equal(balances(data,'2026-09-29')[0].status,'late');
+ assert.equal(balances(data,'2026-09-29')[0].remaining,5000);
+ assert.equal(balances(data,'2026-09-25')[0].soon,true);
+ assert.equal(balances(data,'2026-09-28')[0].status,'open');
+ data.paymentEntries.push({account_id:'a',shop_id:'kh',sequence:3,amount:5000,paid_on:'2026-09-29'});
+ assert.equal(balances(data,'2026-09-29')[0].status,'paid');
+ assert.equal(summarize(data,'ad').receipts,0);
+ data.sales[0].cancelled_at='2026-09-29';assert.deepEqual(balances(data,'2026-09-29'),[]);
+});
 test('mètres et pièces : stocks séparés, chiffre d’affaires et coût décimaux',()=>{
  const data={products:[{shop_id:'ad',unit:'metre',stock_quantite:46.5,reserved_quantity:1.25},
   {shop_id:'ad',unit:'piece',stock_quantite:8,reserved_quantity:0}],reservations:[],payments:[],versements:[],

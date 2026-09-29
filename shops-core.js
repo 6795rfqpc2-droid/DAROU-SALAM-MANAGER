@@ -1,5 +1,19 @@
 /* Calculs purs partagés par l'interface, les rapports et les tests. */
 (function(root) {
+    function paymentBalances(data,today) {
+        const active=new Set(data.sales.filter(s=>!s.cancelled_at).map(s=>s.id));
+        const soonDate=new Date(today+'T12:00:00Z');soonDate.setUTCDate(soonDate.getUTCDate()+7);
+        const horizon=soonDate.toISOString().slice(0,10);
+        return (data.paymentAccounts||[]).filter(a=>active.has(a.sale_id)).map(a=>{
+            const entries=(data.paymentEntries||[]).filter(e=>e.account_id===a.id&&e.shop_id===a.shop_id)
+                .map(e=>({...e,paid_on:String(e.paid_on).slice(0,10)})).sort((a,b)=>a.sequence-b.sequence);
+            const paid=Math.round(entries.reduce((s,e)=>s+Number(e.amount),0)*100)/100;
+            const remaining=Math.max(0,Math.round((Number(a.total_amount)-paid)*100)/100);
+            const due=a.next_due_date?String(a.next_due_date).slice(0,10):null;
+            const status=remaining===0?'paid':due&&due<today?'late':'open';
+            return {...a,initial_date:String(a.initial_date||'').slice(0,10),next_due_date:due,entries,paid,remaining,status,soon:remaining>0&&!!due&&due>=today&&due<=horizon};
+        });
+    }
     function unitTotals(rows,key) {
         const totals={};
         for(const r of rows){const u=r.unit||'piece';totals[u]=Math.round(((totals[u]||0)+Number(typeof key==='function'?key(r):r[key]||0))*100)/100;}
@@ -22,7 +36,10 @@
             if (items.some(l=>l.purchase_price == null)) unknownCosts++;
             else profit += Number(sale.montant_total) - items.reduce((n,l)=>n+Number(l.purchase_price)*Number(l.quantity),0);
         }
-        const receipts = sum(sales.filter(row => !linked.has(row.id)), 'montant_total') + sum(payments, 'amount');
+        const tracked=new Set((data.paymentAccounts||[]).map(a=>a.sale_id));
+        const activeAccountIds=new Set((data.paymentAccounts||[]).filter(a=>allSales.some(s=>s.id===a.sale_id&&!s.cancelled_at)).map(a=>a.id));
+        const saleReceipts=dated(data.paymentEntries||[],'paid_on').filter(e=>activeAccountIds.has(e.account_id));
+        const receipts = sum(sales.filter(row => !linked.has(row.id)&&!tracked.has(row.id)), 'montant_total') + sum(payments, 'amount')+sum(saleReceipts,'amount');
         const stock = scoped(data.products);
         const sold=sales.flatMap(s=>invoices.get(s.id)?.items||[{quantity:s.quantite,unit:'piece'}]);
         return {
@@ -53,7 +70,7 @@
         }
         return totals;
     }
-    const api = {summarize,dailyRevenue,unitTotals};
+    const api = {summarize,dailyRevenue,unitTotals,paymentBalances};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.ShopMetrics = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -110,9 +110,10 @@
 
                 <button class="nav-item" data-page="payments">
                     <span>💳</span>
-                    <span>Paiements en cours</span>
+                    <span>Réservations et avances</span>
                 </button>
 
+                <button class="nav-item" data-page="receivables"><span>💳</span><span>Paiements en cours</span></button>
                 <button class="nav-item" data-page="customers">
                     <span>👥</span>
                     <span>Clients</span>
@@ -226,6 +227,13 @@
                 <div id="remittanceList"></div>
             </section>
             <section id="invoicesPage" class="page"><h2>Factures de la boutique</h2><div id="invoiceList"></div></section>
+            <section id="receivablesPage" class="page">
+              <p class="eyebrow">SUIVI CLIENTS</p><h2 data-page-title="receivables">Paiements en cours</h2>
+              <p>Suivez les ventes livrées et leurs versements. Les réservations restent dans leur rubrique habituelle.</p>
+              <p id="receivablesNotice" role="status"></p>
+              <div class="form-group"><label for="receivablesFilter">Afficher</label><select id="receivablesFilter"><option value="all">Tous</option><option value="open">En cours</option><option value="late">En retard</option><option value="paid">Payés</option></select></div>
+              <div class="table-wrapper"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Facture</th><th>Total</th><th>Déjà payé</th><th>Reste à payer</th><th>Dernier versement</th><th>Prochaine échéance</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="receivablesRows"></tbody></table></div>
+            </section>
 
 
             <!-- =================================================
@@ -235,6 +243,7 @@
             <section id="dashboardPage" class="page active">
 
                 <div id="shopOverview" class="shop-overview"></div>
+                <div id="paymentDashboard" class="shop-overview" hidden></div>
 
                 <div class="welcome-card">
 
@@ -473,7 +482,22 @@
                     <div id="saleItems" aria-label="Articles de la commande"></div>
                     <button type="button" id="addSaleItem" class="btn-secondary">+ Ajouter un produit</button>
                     <div class="sale-total-box"><span>Total général</span><strong id="saleTotal" aria-live="polite">0 F</strong></div>
-                    <p class="shop-note">Vente réglée intégralement. Pour un acompte ou des paiements progressifs, utilisez les réservations.</p>
+                    <p id="paymentMigrationNotice" class="shop-note">Vente réglée intégralement. Les paiements partiels seront disponibles après activation de la mise à jour.</p>
+                    <fieldset id="salePaymentFields" hidden disabled>
+                      <legend>Règlement de la vente</legend>
+                      <div class="payment-fields">
+                        <div class="form-group"><label for="salePaymentStatus">Paiement</label><select id="salePaymentStatus"><option value="full">Payé intégralement</option><option value="partial">Paiement partiel / En cours</option></select></div>
+                        <div class="form-group"><label for="salePaymentMethod">Mode de paiement</label><select id="salePaymentMethod" data-payment-method></select></div>
+                        <div class="form-group"><label for="salePaymentDate">Date du premier paiement</label><input id="salePaymentDate" type="date" required></div>
+                      </div>
+                      <div id="partialPaymentFields" class="payment-fields" hidden>
+                        <div class="form-group"><label for="salePaymentName">Nom du client *</label><input id="salePaymentName" maxlength="200" autocomplete="name"></div>
+                        <div class="form-group"><label for="salePaymentPhone">Téléphone *</label><input id="salePaymentPhone" type="tel" maxlength="30" autocomplete="tel" placeholder="Ex. +221 77 123 45 67"></div>
+                        <div class="form-group"><label for="salePaidAmount">Montant déjà payé (F CFA)</label><input id="salePaidAmount" type="number" min="0" step="0.01" value="0"></div>
+                        <div class="form-group"><label for="saleNextDue">Prochaine échéance (facultatif)</label><input id="saleNextDue" type="date"></div>
+                      </div>
+                      <p id="salePaymentRemaining" aria-live="polite"></p>
+                    </fieldset>
                     <p id="saleFeedback" role="status" aria-live="polite"></p>
 
                     <div class="form-actions">
@@ -509,7 +533,7 @@
 
                     <div>
                         <p class="eyebrow">PAIEMENTS</p>
-                        <h2>Paiements en cours</h2>
+                        <h2 data-page-title="payments">Réservations et avances</h2>
                         <p>
                             Suivez les avances, les restes et les réservations.
                         </p>
@@ -1713,6 +1737,22 @@
     <script src="shops.js"></script>
     <script src="invoice-pdf.js"></script>
     <script src="sales-orders.js"></script>
+    <script src="sale-payments.js"></script>
+    <dialog id="salePaymentModal" class="payment-dialog"><h2>Ajouter un versement</h2><p id="paymentClientSummary"></p>
+      <form id="salePaymentForm"><div class="payment-fields">
+        <div class="form-group"><label for="newPaymentAmount">Montant du versement (F CFA)</label><input id="newPaymentAmount" type="number" min="0.01" step="0.01" required></div>
+        <div class="form-group"><label for="newPaymentDate">Date du versement</label><input id="newPaymentDate" type="date" required></div>
+        <div class="form-group"><label for="newPaymentMethod">Mode de paiement</label><select id="newPaymentMethod" data-payment-method></select></div>
+        <div class="form-group"><label for="newPaymentDue">Prochaine échéance (facultatif)</label><input id="newPaymentDue" type="date"></div>
+      </div><p id="newPaymentRemaining" aria-live="polite"></p><p id="newPaymentFeedback" role="status"></p>
+      <div class="shop-report-actions"><button class="btn-primary" type="submit">Enregistrer le versement</button><button class="btn-secondary" type="button" onclick="document.getElementById('salePaymentModal').close()">Fermer</button></div></form>
+    </dialog>
+    <dialog id="paymentHistoryModal" class="payment-dialog"><h2>Historique des versements</h2><div id="paymentHistoryContent"></div><button class="btn-secondary" onclick="document.getElementById('paymentHistoryModal').close()">Fermer</button></dialog>
+    <dialog id="paymentReminderModal" class="payment-dialog"><h2>Préparer un rappel</h2><p>Vérifiez le numéro et le message. Rien n’est envoyé automatiquement.</p>
+      <div class="form-group"><label for="reminderPhone">Numéro international</label><input id="reminderPhone" type="tel"></div>
+      <div class="form-group"><label for="reminderMessage">Message à vérifier</label><textarea id="reminderMessage" rows="6"></textarea></div>
+      <p id="reminderFeedback" role="status"></p><button id="openPaymentWhatsApp" class="btn-primary">Ouvrir WhatsApp</button><button class="btn-secondary" onclick="document.getElementById('paymentReminderModal').close()">Fermer</button>
+    </dialog>
 
 </body>
 </html>

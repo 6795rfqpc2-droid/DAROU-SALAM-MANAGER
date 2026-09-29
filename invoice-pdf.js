@@ -18,14 +18,14 @@
         const rect=(x,top,w,h,color)=>commands.push(`${color} rg ${x} ${842-top-h} ${w} ${h} re f`);
         const rule=top=>rect(40,top,515,0.6,'0.89 0.86 0.87');
         function footer(){
-            rule(800);text('DAROU SALAM MANAGER',40,818,8);text('Page '+(pages.length+1),500,818,8);
+            rule(800);text('Darou Salam Business',40,818,8);text('Page '+(pages.length+1),500,818,8);
         }
         function pageStart(){
             commands=[];rect(0,0,595,10,'0.40 0.12 0.25');
-            text('DAROU SALAM MANAGER',40,43,9,true,'0.55 0.26 0.37');
+            text('Darou Salam Business',40,43,9,true,'0.55 0.26 0.37');
             y=72;
             for(const line of wrap(m.shop_name,505,21)){text(line,40,y,21,true);y+=25;}
-            text('FACTURE',40,y+13,12,true);y+=33;
+            text(m.document_title||'FACTURE',40,y+13,12,true);y+=33;
             for(const line of wrap(m.numero,505,10)){text(line,40,y,10);y+=14;}
             text('Date : '+m.date,40,y,10);y+=22;
             if(m.cancelled){text('VENTE ANNULÉE - document conservé',40,y,11,true,'0.65 0.10 0.18');y+=22;}
@@ -42,6 +42,8 @@
         for(const value of [m.customer_name,m.customer_phone,m.customer_address].filter(Boolean)) {
             for(const line of wrap(value,505,11)){ensure(16);text(line,40,y,11);y+=16;}
         }
+        if(m.payment_note){y+=8;for(const line of wrap(m.payment_note,505,10)){ensure(16);text(line,40,y,10);y+=16;}}
+        if(m.receipt_amount!=null){ensure(30);y+=12;text('Versement reçu : '+money(m.receipt_amount),40,y,12,true);y+=18;}
         y+=18;ensure(60);tableHead();
         for(const item of m.items){
             const quantity=Number(item.quantity).toLocaleString('fr-FR',{maximumFractionDigits:2})+(item.unit==='metre'?' m':'');
