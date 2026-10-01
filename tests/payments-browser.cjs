@@ -79,8 +79,8 @@ function browserClient(){
   const url=new URL(route.request().url());
   if(url.hostname!=='darou.test')return route.fulfill({body:'',contentType:'text/javascript'});
   const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
-  if(!['index.html','style.css','units.js','script.js','shops-core.js','shops.js','invoice-pdf.js','sales-orders.js','sale-payments.js'].includes(name))return route.fulfill({status:404,body:''});
-  return route.fulfill({body:fs.readFileSync(name),contentType:name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});
+  if(!['index.html','style.css','units.js','script.js','shops-core.js','shops.js','invoice-pdf.js','sales-orders.js','sale-payments.js','brand.js','report-pdf.js','finance.js','periods.js','assets/darou-salam-logo.png'].includes(name))return route.fulfill({status:404,body:''});
+  return route.fulfill({body:fs.readFileSync(name),contentType:name.endsWith('.png')?'image/png':name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});
  });
  await page.goto('https://darou.test');await page.locator('#shopOverview h2').waitFor();
  await page.locator('[data-page="sales"]').click();
@@ -94,9 +94,9 @@ function browserClient(){
  assert.match(await page.locator('#salePaymentRemaining').innerText(),/8.*000/);
  await page.locator('#saleForm [type="submit"]').click();
  await page.locator('#invoiceModal[open]').waitFor().catch(async e=>{console.error(await page.locator('#saleFeedback').innerText());throw e;});
- assert.match(await page.locator('#invoiceContent').innerText(),/Paiement en cours/);
+ assert.match(await page.locator('#invoiceContent').innerText(),/Paiement partiel/);
  assert.match(await page.locator('#invoiceContent').innerText(),/Wave/);
- assert.match(await page.locator('#invoiceContent').innerText(),/Darou Salam Business/);
+ assert.match(await page.locator('#invoiceContent').innerText(),/DAROU SALAM BUSINESS/);
  assert.doesNotMatch(await page.locator('#invoiceContent').innerText(),/Invalid Date/);
  fs.mkdirSync('test-results',{recursive:true});
  let download=page.waitForEvent('download');await page.locator('#invoicePdf').click();await (await download).saveAs(path.resolve('test-results/facture-paiement-partiel.pdf'));

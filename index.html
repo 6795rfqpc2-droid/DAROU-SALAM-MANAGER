@@ -219,19 +219,19 @@
             <section id="reportsPage" class="page">
                 <div class="section-header"><h2>Bilan mensuel</h2></div>
                 <div class="shop-report-actions"><label for="reportMonth">Mois</label><input type="month" id="reportMonth" required><button id="reportPdf" class="btn-primary">Télécharger en PDF</button><button id="reportPrint" class="btn-secondary">Imprimer</button></div>
-                <div id="monthlyReport"></div>
+                <p id="activityPeriodStatus" role="status"></p><div class="shop-report-actions"><button id="closeMonth" class="btn-primary" hidden>Clôturer le mois</button><button id="shareReport" class="btn-secondary">Partager le bilan</button></div><div id="monthlyClosures"></div><div id="monthlyReport"></div>
             </section>
             <section id="remittancesPage" class="page">
                 <h2>Versements à l’administratrice</h2>
                 <form id="remittanceForm" class="shop-report-actions"><label for="remittanceAmount">Montant (F CFA)</label><input id="remittanceAmount" type="number" min="1" step="1" required><label for="remittanceNote">Note</label><input id="remittanceNote" maxlength="500"><button class="btn-primary">Enregistrer le versement</button></form>
-                <div id="remittanceList"></div>
+                <p id="cashRemittanceNotice" role="status"></p><div id="remittanceList"></div>
             </section>
             <section id="invoicesPage" class="page"><h2>Factures de la boutique</h2><div id="invoiceList"></div></section>
             <section id="receivablesPage" class="page">
               <p class="eyebrow">SUIVI CLIENTS</p><h2 data-page-title="receivables">Paiements en cours</h2>
               <p>Suivez les ventes livrées et leurs versements. Les réservations restent dans leur rubrique habituelle.</p>
               <p id="receivablesNotice" role="status"></p>
-              <div class="form-group"><label for="receivablesFilter">Afficher</label><select id="receivablesFilter"><option value="all">Tous</option><option value="open">En cours</option><option value="late">En retard</option><option value="paid">Payés</option></select></div>
+              <div class="form-group"><label for="receivablesFilter">Afficher</label><select id="receivablesFilter"><option value="open">En cours</option><option value="late">En retard</option><option value="paid">Payés — historique</option><option value="all">Toutes les factures — archives comprises</option></select></div>
               <div class="table-wrapper"><table><thead><tr><th>Client</th><th>Téléphone</th><th>Facture</th><th>Total</th><th>Déjà payé</th><th>Reste à payer</th><th>Dernier versement</th><th>Prochaine échéance</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="receivablesRows"></tbody></table></div>
             </section>
 
@@ -752,6 +752,7 @@
             ================================================== -->
 
             <section id="historyPage" class="page">
+                <div id="historyCashSummary" class="cash-summary"></div>
 
                 <div class="section-header">
 
@@ -792,11 +793,12 @@
                             <thead>
                                 <tr>
                                     <th>Date</th>
-                                    <th>Produit</th>
+                                    <th>Produit / Événement</th>
                                     <th>Client</th>
                                     <th>Quantité</th>
-                                    <th>Total</th>
+                                    <th>Montant</th>
                                     <th>Enregistré par</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
 
@@ -821,6 +823,7 @@
             ================================================== -->
 
             <section id="statisticsPage" class="page">
+                <div class="shop-report-actions"><label for="financeDay">Journée</label><input id="financeDay" type="date"></div><div id="dailyFinance"></div>
 
                 <div class="section-header">
 
@@ -1738,6 +1741,11 @@
     <script src="invoice-pdf.js"></script>
     <script src="sales-orders.js"></script>
     <script src="sale-payments.js"></script>
+    <script src="brand.js"></script>
+    <script src="report-pdf.js"></script>
+    <script src="finance.js"></script>
+    <script src="periods.js"></script>
+    <script src="update-check.js"></script>
     <dialog id="salePaymentModal" class="payment-dialog"><h2>Ajouter un versement</h2><p id="paymentClientSummary"></p>
       <form id="salePaymentForm"><div class="payment-fields">
         <div class="form-group"><label for="newPaymentAmount">Montant du versement (F CFA)</label><input id="newPaymentAmount" type="number" min="0.01" step="0.01" required></div>

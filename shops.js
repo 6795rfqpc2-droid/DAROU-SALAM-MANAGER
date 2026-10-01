@@ -118,6 +118,7 @@ refreshAll = async function() {
                 allShopRows('sale_payment_accounts'),allShopRows('sale_payment_entries')]) : [[],[]];
             const withPhotos = await attachProductPhotos(productRows);
             hydrateShopData({products: withPhotos, sales: saleRows, reservations: reservationRows, payments, versements, factures,paymentAccounts,paymentEntries}, categoryRows, customerRows);
+            if(typeof loadActivityPeriods==='function')await loadActivityPeriods();
             renderCategories(); populateCategorySelects(); populateProductSelects(); populateCustomerSelects();
             renderDashboard(); renderProducts(); renderCustomers(); renderStock(); renderSalesHistory();
             renderPayments(); renderStatistics(); updateUserInterface(); renderShopReports(); renderSalePayments();
@@ -148,7 +149,7 @@ showPage = function(name) {
         name = 'dashboard';
     }
     originalShowPage(name);
-    const titles = {reports: 'Bilan mensuel', remittances: 'Versements', invoices: 'Factures', statistics: 'Statistiques'};
+    const titles = {dashboard: 'Tableau de bord', products: 'Produits', sales: 'Ventes', payments: 'Réservations et avances', receivables: 'Paiements en cours', customers: 'Clients', stock: 'Stock', history: 'Historique', staff: 'Personnel', settings: 'Paramètres', reports: 'Bilan mensuel', remittances: 'Versements', invoices: 'Factures', statistics: 'Statistiques'};
     if (titles[name]) document.getElementById('pageTitle').textContent = titles[name];
 };
 const originalShowLogin = showLogin;
@@ -188,7 +189,7 @@ function renderStatisticsChart() {
     document.getElementById('statisticsChart').innerHTML=`<svg viewBox="0 0 840 270" role="img" aria-label="Chiffre d’affaires quotidien en F CFA pour ${escapeHtml(currentShopName())}, ${input.value}"><text x="110" y="24">Montant (F CFA)</text>${grid}${bars}</svg>`;
     const total=days.reduce((n,d)=>n+d.revenue,0);
     document.getElementById('statisticsChartSummary').textContent=total>0
-        ? 'Total du mois : '+formatMoney(total)+'. Chaque barre représente un jour. Ventes annulées exclues.'
+        ? 'Total du mois : '+formatMoney(total)+'. Période d’activité sélectionnée ; barres regroupées par jour d’enregistrement (dernier jour si nécessaire). Ventes annulées exclues.'
         : 'Aucune vente non nulle enregistrée pour ce mois. Le graphique se remplira après les ventes ; ajouter un produit ne crée pas de chiffre d’affaires.';
     document.getElementById('statisticsComparison').innerHTML=!activeShopId
         ? '<h3>Chiffre d’affaires par boutique — '+input.value+'</h3>'+comparisonHtml(input.value) : '';

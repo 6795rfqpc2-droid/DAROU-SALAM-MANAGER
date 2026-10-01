@@ -1292,3 +1292,35 @@ dialog::backdrop {
 .payment-status.paid { background:#def3e5;color:#245d39; }
 .invoice-payment-note { margin:18px 0; line-height:1.6; white-space:pre-line; }
 .invoice-receipt-amount { padding:14px;background:#f5ecf1;margin:12px 0; }
+.business-logo { width:88px;height:72px;object-fit:contain;display:block;margin-bottom:12px; }
+.cash-summary { display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px;margin-bottom:25px;border-radius:14px;background:#f4e8ee;border-left:5px solid #843a55; }
+.cash-summary strong { display:block;font-size:28px;color:#652c42;margin:8px 0; }
+.cash-summary small,#historyTableBody small { display:block; }
+.cash-divider td { background:#652c42;color:white;border-top:7px solid white;border-bottom:7px solid white;padding:22px 16px; }
+.cash-divider strong { font-size:16px; }
+.cash-divider p { color:#fff8fb; }
+.cash-collection td { background:#edf4f1; }
+.business-report { background:white;border:1px solid #e4d5dd;border-radius:12px;padding:34px;color:#352b31; }
+.business-report-header { display:flex;align-items:center;gap:24px;border-top:5px solid #652c42;border-bottom:1px solid #e4d5dd;padding:25px 0;margin-bottom:30px; }
+.business-kicker { letter-spacing:2px;color:#843a55!important;font-weight:700; }
+.report-period { margin-left:auto;text-align:right; }
+.report-period strong,.report-period small { display:block; }
+.report-section { margin:24px 0; }
+.report-section h3 { color:#652c42;margin-bottom:12px; }
+.report-section table { min-width:0; }
+.report-section th { background:#f1e5eb;color:#652c42; }
+.report-section td:last-child,.report-section th:last-child { text-align:right; }
+.report-section .alternate { background:#fcf8fa; }
+.report-notes { border-top:1px solid #e4d5dd;padding-top:15px; }
+.finance-modes { display:flex;flex-wrap:wrap;gap:16px;margin:20px 0 30px; }
+@media(max-width:600px){.cash-summary,.business-report-header{flex-direction:column;align-items:flex-start}.business-report{padding:16px}.report-period{margin:0;text-align:left}.report-section td{padding:10px 6px;overflow-wrap:anywhere}}
+@media print {.business-report{border:0;padding:0}.report-section{break-inside:avoid}.business-report-header{break-after:avoid}.report-section thead{display:table-header-group}}
+
+#versionNotice {position:fixed;bottom:16px;left:16px;right:16px;z-index:10000;background:white;border:2px solid #843a55;border-radius:12px;padding:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 4px 20px #0002;}
+@media(max-width:600px){
+ #invoiceList table{min-width:0;width:100%;table-layout:fixed;}
+ #invoiceList th,#invoiceList td{white-space:normal;overflow-wrap:anywhere;padding:10px 5px;}
+ #invoiceList th:nth-child(2),#invoiceList td:nth-child(2),#invoiceList th:nth-child(3),#invoiceList td:nth-child(3){display:none;}
+ #invoiceList button{padding:10px 6px;}
+}
+@media print {#versionNotice {display:none!important}}

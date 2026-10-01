@@ -35,10 +35,14 @@ function salePaymentPayload(){
     return data;
 }
 function paymentInvoiceDetails(f){
-    const a=paymentRows().find(a=>a.sale_id===f.sale_id);if(!a)return {};
+    const a=paymentRows().find(a=>a.sale_id===f.sale_id);if(!a){
+        const paid=Number(f.paid_amount??f.total_amount),remaining=Math.max(0,Number(f.total_amount)-paid);
+        const mode=shopData.sales.find(s=>s.id===f.sale_id)?.mode_paiement;
+        return {payment_note:`${remaining===0?'Payé':paid>0?'Paiement partiel':'À payer'} · Mode : ${paymentMethods[mode]||'Non renseigné'}`};
+    }
     const methods=[...new Set(a.entries.map(e=>paymentMethods[e.method]||e.method))].join(', ')||'Aucun versement';
     return {paid:a.paid,remaining:a.remaining,customer_name:a.customer_name,customer_phone:a.customer_phone,
-        payment_note:`${a.remaining===0?'Payé':'Paiement en cours'}${a.status==='late'?' — En retard':''} · Modes : ${methods}${a.next_due_date?' · Prochaine échéance : '+paymentDateLabel(a.next_due_date):''}`};
+        payment_note:`${a.remaining===0?'Payé':a.paid>0?'Paiement partiel':'À payer'}${a.status==='late'?' — En retard':''} · Modes : ${methods}${a.next_due_date?' · Prochaine échéance : '+paymentDateLabel(a.next_due_date):''}`};
 }
 function renderSalePayments(){
     const rows=paymentRows();
@@ -101,12 +105,13 @@ function openPaymentReceipt(accountId,entryId){
     const f=shopData.factures.find(f=>f.sale_id===a.sale_id);if(!f)return;
     const model={...invoiceModel(f),document_title:'REÇU DE VERSEMENT',numero:entry.receipt_number,
         date:paymentDateLabel(entry.paid_on),paid:Number(entry.paid_after),remaining:Number(entry.remaining_after),
-        receipt_amount:Number(entry.amount),payment_note:`Facture n° ${f.numero} · Mode : ${paymentMethods[entry.method]}\n${Number(entry.remaining_after)===0?'Payé':'Paiement en cours'} — Situation après ce versement`};
+        receipt_amount:Number(entry.amount),payment_note:`Facture n° ${f.numero} · Mode : ${paymentMethods[entry.method]}\n${Number(entry.remaining_after)===0?'Payé':'Paiement partiel'} — Situation après ce versement`};
     openInvoice({receiptModel:model});
 }
 function openPaymentHistory(a){
     const content=document.getElementById('paymentHistoryContent');
-    content.innerHTML=`<p>${escapeHtml(a.customer_name)} — Total versé : ${formatMoney(a.paid)}</p><div class="table-wrapper"><table><thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th>Reçu</th></tr></thead><tbody>${a.entries.map(e=>`<tr><td>${paymentDateLabel(e.paid_on)}</td><td>${formatMoney(e.amount)}</td><td>${escapeHtml(paymentMethods[e.method])}</td><td><button class="btn-secondary" data-receipt="${e.id}">${escapeHtml(e.receipt_number)}</button></td></tr>`).join('')||'<tr><td colspan="4">Aucun versement enregistré.</td></tr>'}</tbody></table></div>`;
+    const invoice=shopData.factures.find(f=>f.sale_id===a.sale_id);
+    content.innerHTML=`<p>${escapeHtml(a.customer_name)} — Facture ${escapeHtml(invoice?.numero||'')} — Total versé : ${formatMoney(a.paid)}</p><div class="table-wrapper"><table><thead><tr><th>Date du paiement</th><th>Enregistré le</th><th>Montant</th><th>Mode</th><th>Ancien reste</th><th>Nouveau reste</th><th>Enregistré par</th><th>Reçu</th></tr></thead><tbody>${a.entries.map(e=>`<tr><td>${paymentDateLabel(e.paid_on)}</td><td>${financeDate(e.cash_recorded_at||e.created_at)}</td><td>${financeMoney(e.amount)}</td><td>${escapeHtml(paymentMethods[e.method])}</td><td>${financeMoney(Number(e.remaining_after)+Number(e.amount))}</td><td>${financeMoney(e.remaining_after)}</td><td>${escapeHtml(financePerson(e))}</td><td><button class="btn-secondary" data-receipt="${e.id}">${escapeHtml(e.receipt_number)}</button></td></tr>`).join('')||'<tr><td colspan="8">Aucun versement enregistré.</td></tr>'}</tbody></table></div>`;
     content.querySelectorAll('[data-receipt]').forEach(b=>b.onclick=()=>{document.getElementById('paymentHistoryModal').close();openPaymentReceipt(a.id,b.dataset.receipt);});
     document.getElementById('paymentHistoryModal').showModal();
 }

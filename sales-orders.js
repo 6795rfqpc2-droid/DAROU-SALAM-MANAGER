@@ -93,11 +93,12 @@ saveSale=async function(event) {
         const customer=document.getElementById('saleCustomer').value;
         const payload={p_customer_id:customer?Number(customer):null,p_items:items,
             ...(salePaymentsReady?{p_payment:salePaymentPayload()}: {})};
-        const fingerprint=JSON.stringify({shop:activeShopId,...payload});
+        const channel=document.getElementById('saleChannel')?.value||null;
+        const fingerprint=JSON.stringify({shop:activeShopId,...payload,channel});
         if (!pendingOrder || pendingOrder.fingerprint!==fingerprint) pendingOrder={fingerprint,id:crypto.randomUUID()};
         savingOrder=true; form.inert=true; feedback.textContent='Enregistrement de la commande…';
         const result=salePaymentsReady
-            ? await shopRpc('create_sale_with_payment',{...payload,p_request_id:pendingOrder.id})
+            ? await shopRpc(typeof activityPeriodsReady!=='undefined'&&activityPeriodsReady?'create_period_sale':'create_sale_with_payment',{...payload,p_request_id:pendingOrder.id,...(typeof activityPeriodsReady!=='undefined'&&activityPeriodsReady?{p_channel:channel}:{})})
             : multiSalesReady
             ? await shopRpc('create_sale_order',{...payload,p_request_id:pendingOrder.id})
             : await shopRpc('create_sale',{p_customer_id:payload.p_customer_id,p_product_id:items[0].product_id,p_quantity:items[0].quantity,p_unit_price:items[0].unit_price});
@@ -126,7 +127,7 @@ function invoiceModel(f) {
 }
 function invoiceHtml(f) {
     const m=invoiceModel(f);
-    return `<article class="invoice-sheet"><header class="invoice-heading"><div><p class="invoice-kicker">Darou Salam Business</p><h2>${escapeHtml(m.shop_name)}</h2></div><div><h3>${escapeHtml(m.document_title||'FACTURE')}</h3><p class="invoice-number">${escapeHtml(m.numero)}</p><p>${escapeHtml(m.date)}</p></div></header>
+    return `<article class="invoice-sheet"><header class="invoice-heading"><div>${BusinessBrand.logoSrc?`<img class="business-logo" src="${BusinessBrand.logoSrc}" alt="DAROU SALAM — DIALABÉ & VOILES">`:''}<p class="invoice-kicker">DAROU SALAM BUSINESS</p><h2>${escapeHtml(m.shop_name)}</h2></div><div><h3>${escapeHtml(m.document_title||'FACTURE')}</h3><p class="invoice-number">${escapeHtml(m.numero)}</p><p>${escapeHtml(m.date)}</p></div></header>
       ${m.cancelled?'<p class="invoice-cancelled">VENTE ANNULÉE — document conservé</p>':''}
       <section class="invoice-client"><p class="invoice-kicker">CLIENTE</p><strong>${escapeHtml(m.customer_name)}</strong>
       ${m.customer_phone?'<p>'+escapeHtml(m.customer_phone)+'</p>':''}${m.customer_address?'<p>'+escapeHtml(m.customer_address)+'</p>':''}</section>
@@ -141,18 +142,34 @@ function saveInvoiceBlob(blob,name) {
     const url=URL.createObjectURL(blob), a=document.createElement('a');
     a.href=url; a.download=name+'.pdf'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
+async function prepareInvoiceLogo() {
+    let timer;
+    try {
+        const logo=await Promise.race([BusinessBrand.pdfImage(),new Promise((_,reject)=>{
+            timer=setTimeout(()=>reject(new Error('Chargement du logo trop long.')),4000);
+        })]);
+        InvoicePdf.setLogo(logo);
+    } catch(error) {
+        InvoicePdf.setLogo(null);
+        showToast('Le logo est indisponible. Votre facture sera téléchargée sans logo.');
+    } finally {clearTimeout(timer);}
+}
 function openInvoice(f) {
+    if(!f){showToast('Facture introuvable. Actualisez la page puis réessayez.');return;}
     const modal=document.getElementById('invoiceModal'), m=invoiceModel(f);
     modal.querySelector('h2').textContent=m.document_title||'Facture';
     document.getElementById('invoiceContent').innerHTML=invoiceHtml(f);
-    document.getElementById('invoicePdf').onclick=()=>saveInvoiceBlob(InvoicePdf.create(m),m.numero);
+    document.getElementById('invoicePdf').onclick=async()=>{
+        try{await prepareInvoiceLogo();saveInvoiceBlob(InvoicePdf.create(m),m.numero);}catch(error){showToast(friendlyError(error));}
+    };
     document.getElementById('invoicePrint').onclick=()=>{
         document.getElementById('shopPrintArea').innerHTML=invoiceHtml(f);
         modal.close(); window.print();
     };
     document.getElementById('invoiceShare').onclick=async()=>{
-        const file=new File([InvoicePdf.create(m)],m.numero+'.pdf',{type:'application/pdf'});
         try {
+            await prepareInvoiceLogo();
+            const file=new File([InvoicePdf.create(m)],m.numero+'.pdf',{type:'application/pdf'});
             if (navigator.canShare?.({files:[file]})) {
                 await navigator.share({files:[file],title:'Facture '+m.numero,text:m.shop_name+' — Merci pour votre confiance'});
             } else {
@@ -162,6 +179,9 @@ function openInvoice(f) {
         } catch(error) {if(error.name!=='AbortError') showToast('Partage indisponible. Téléchargez le PDF puis joignez-le dans WhatsApp.');}
     };
     if (!modal.open) modal.showModal();
+    // Sur mobile, le focus automatique sur Télécharger faisait défiler la
+    // facture jusqu'en bas et masquait immédiatement le logo et l'en-tête.
+    const heading=modal.querySelector('h2');heading.tabIndex=-1;heading.focus({preventScroll:true});modal.scrollTop=0;
 }
 document.addEventListener('DOMContentLoaded',()=>{
     resetOrder();

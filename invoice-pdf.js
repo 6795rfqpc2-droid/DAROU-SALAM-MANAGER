@@ -1,5 +1,7 @@
 /* PDF vectoriel autonome : aucune donnée client envoyée à un service externe. */
 (function(root){
+    let brandLogo=null;
+    const setLogo=logo=>{brandLogo=logo;};
     const clean=s=>String(s??'').replace(/[’‘]/g,"'").replace(/[–—]/g,'-').replace(/[\u202f\u00a0]/g,' ').replace(/œ/g,'oe').replace(/Œ/g,'OE').replace(/€/g,'EUR');
     const hex=s=>Array.from(clean(s)).map(c=>(c.charCodeAt(0)<=255?c.charCodeAt(0):63).toString(16).padStart(2,'0')).join('');
     const width=(s,size)=>Array.from(clean(s)).reduce((n,c)=>n+(/[MW@%]/.test(c)?0.95:/[ilI.,:;' ]/.test(c)?0.3:0.62)*size,0);
@@ -18,12 +20,14 @@
         const rect=(x,top,w,h,color)=>commands.push(`${color} rg ${x} ${842-top-h} ${w} ${h} re f`);
         const rule=top=>rect(40,top,515,0.6,'0.89 0.86 0.87');
         function footer(){
-            rule(800);text('Darou Salam Business',40,818,8);text('Page '+(pages.length+1),500,818,8);
+            rule(800);text('DAROU SALAM BUSINESS',40,818,8);text('Page '+(pages.length+1),500,818,8);
         }
         function pageStart(){
             commands=[];rect(0,0,595,10,'0.40 0.12 0.25');
-            text('Darou Salam Business',40,43,9,true,'0.55 0.26 0.37');
-            y=72;
+            if(brandLogo){const scale=Math.min(82/brandLogo.width,64/brandLogo.height),w=brandLogo.width*scale,h=brandLogo.height*scale;
+                commands.push(`q ${w} 0 0 ${h} 40 ${842-32-h} cm /Logo Do Q`);}
+            text('DAROU SALAM BUSINESS',brandLogo?139:40,43,9,true,'0.55 0.26 0.37');
+            y=brandLogo?124:72;
             for(const line of wrap(m.shop_name,505,21)){text(line,40,y,21,true);y+=25;}
             text(m.document_title||'FACTURE',40,y+13,12,true);y+=33;
             for(const line of wrap(m.numero,505,10)){text(line,40,y,10);y+=14;}
@@ -73,10 +77,11 @@
         const objects=['<< /Type /Catalog /Pages 2 0 R >>','',
             '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
             '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];
+        if(brandLogo)objects.push(`<< /Type /XObject /Subtype /Image /Width ${brandLogo.width} /Height ${brandLogo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${brandLogo.hex.length+1} >>\nstream\n${brandLogo.hex}>\nendstream`);
         const kids=[];
         for(const stream of pages){
             const page=objects.length+1;kids.push(page+' 0 R');
-            objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${page+1} 0 R >>`);
+            objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> ${brandLogo?'/XObject << /Logo 5 0 R >>':''} >> /Contents ${page+1} 0 R >>`);
             objects.push('<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream');
         }
         objects[1]='<< /Type /Pages /Count '+pages.length+' /Kids ['+kids.join(' ')+'] >>';
@@ -87,6 +92,6 @@
         pdf+='trailer\n<< /Size '+offsets.length+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF';
         return new Blob([pdf],{type:'application/pdf'});
     }
-    if(typeof module!=='undefined'&&module.exports)module.exports={create};
-    else root.InvoicePdf={create};
+    if(typeof module!=='undefined'&&module.exports)module.exports={create,setLogo};
+    else root.InvoicePdf={create,setLogo};
 })(typeof window!=='undefined'?window:globalThis);

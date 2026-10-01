@@ -1,6 +1,21 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {summarize,dailyRevenue}=require('../shops-core');
+test('trois flux : 15 000 vendu, 5 000 encaissé puis 4 000 recouvré, créance 6 000',()=>{
+ const data={products:[],reservations:[],payments:[],versements:[],factures:[],
+  sales:[{id:'s',shop_id:'kh',montant_total:15000,date_vente:'2026-09-29',request_id:'initial'}],
+  paymentAccounts:[{id:'a',sale_id:'s',shop_id:'kh',total_amount:15000}],paymentEntries:[
+   {id:'p1',account_id:'a',shop_id:'kh',amount:5000,paid_on:'2026-09-29',method:'wave',request_id:'initial'},
+   {id:'p2',account_id:'a',shop_id:'kh',amount:4000,paid_on:'2026-09-30',method:'orange_money',request_id:'next'}]};
+ const day1=summarize(data,'kh','2026-09-29'),day2=summarize(data,'kh','2026-09-30'),month=summarize(data,'kh','2026-09');
+ assert.equal(day1.revenue,15000);assert.equal(day1.salesReceipts,5000);
+ assert.equal(day2.revenue,0);assert.equal(day2.salesCount,0);assert.equal(day2.debtReceipts,4000);assert.equal(day2.receipts,4000);
+ assert.equal(month.saleDebt,6000);assert.equal(month.receipts,9000);assert.deepEqual(month.paymentModes,{wave:5000,orange_money:4000});
+ data.versements.push({shop_id:'kh',amount:5000,created_at:'2026-09-29T15:30:00Z'});
+ assert.equal(summarize(data,'kh','2026-09-30').cashBalance,4000);
+ data.versements.push({shop_id:'kh',amount:4000,created_at:'2026-09-30T15:30:00Z'});
+ assert.equal(summarize(data,'kh','2026-09').cashBalance,0);
+});
 test('paiements : encaissements datés sans compter deux fois la vente, soldes et échéances',()=>{
  const data={products:[],reservations:[],payments:[],versements:[],factures:[],sales:[{id:'v',shop_id:'kh',montant_total:10000,date_vente:'2026-08-20'}],
   paymentAccounts:[{id:'a',sale_id:'v',shop_id:'kh',total_amount:10000,next_due_date:'2026-09-28'}],
