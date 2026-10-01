@@ -83,6 +83,18 @@
             cancellations: allSales.filter(s => s.cancelled_at && (!month || s.cancelled_at.startsWith(month))).length
         };
     }
+    function summarizeMonth(data,shopId,month){
+        const m=summarize(data,shopId,month);
+        const scoped=r=>!shopId||r.shop_id===shopId;
+        const sales=data.sales.filter(s=>scoped(s)&&!s.cancelled_at&&monthOf(s,'date_vente')===month);
+        const ids=new Set(sales.map(s=>s.id));
+        const entries=(data.paymentEntries||[]).filter(e=>scoped(e)&&monthOf(e,'paid_on')<=month);
+        m.saleDebt=cents((data.paymentAccounts||[]).filter(a=>scoped(a)&&ids.has(a.sale_id)).reduce((n,a)=>n+Math.max(0,Number(a.total_amount)-entries.filter(e=>e.account_id===a.id).reduce((v,e)=>v+Number(e.amount),0)),0));
+        const reservations=data.reservations.filter(r=>scoped(r)&&monthOf(r,'created_at')===month&&r.status!=='annule');
+        m.reservationDebt=cents(reservations.reduce((n,r)=>n+Math.max(0,Number(r.quantity)*Number(r.unit_price)-data.payments.filter(p=>scoped(p)&&p.reservation_id===r.id&&monthOf(p,'created_at')<=month).reduce((v,p)=>v+Number(p.amount),0)),0));
+        m.customerDebt=cents(m.saleDebt+m.reservationDebt);m.reservationsCount=reservations.length;
+        return m;
+    }
     function dailyRevenue(rows, shopId, month) {
         if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return [];
         const [year,number] = month.split('-').map(Number);
@@ -97,7 +109,7 @@
         }
         return totals;
     }
-    const api = {monthOf,summarize,dailyRevenue,unitTotals,paymentBalances,receiptEvents};
+    const api = {monthOf,summarizeMonth,summarize,dailyRevenue,unitTotals,paymentBalances,receiptEvents};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.ShopMetrics = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -16,10 +16,11 @@ async function boot(selected='kh',role='admin',version=null){
  w.URL.createObjectURL=blob=>{w.lastPdf=blob;return 'blob:test'};w.URL.revokeObjectURL=()=>{};
  w.HTMLAnchorElement.prototype.click=function(){};
  w.eval(['shops-core.js','units.js','script.js','shops.js','invoice-pdf.js','sales-orders.js','sale-payments.js','brand.js','report-pdf.js','finance.js','periods.js'].map(f=>fs.readFileSync(f,'utf8')).join('\n')+`
- window.testApi={saveSale,refreshAll,shopTable,shopRpc,allShopRows,renderStaffAccess,downloadPdf,uploadProductPhoto,attachProductPhotos,invoiceModel,
+ window.testApi={setDashboardMonth:month=>{selectedDashboardMonth=month;renderMonthlyDashboard();},saveSale,refreshAll,shopTable,shopRpc,allShopRows,renderStaffAccess,downloadPdf,uploadProductPhoto,attachProductPhotos,invoiceModel,
  setFinanceData:raw=>{hydrateShopData(raw,[],[]);salePaymentsReady=true;cashManagementReady=true;renderSalesHistory();renderSalePayments();renderMonthlyReport();},
  setPeriodData:(periods,closures)=>{activityPeriodsReady=true;activityPeriods=periods;monthlyClosures=closures;renderMonthlyReport();},reportModel:()=>financeReportModel(),getState:()=>({activeShopId,sales,products,shopData}),setScope:id=>{activeShopId=id}};`);
  await new Promise(resolve=>w.setTimeout(resolve,50));
+ w.testApi.setDashboardMonth('2026-09');
  assert.equal(w.document.getElementById('loginMessage').textContent,'');
  return {dom,w,client};
 }
@@ -72,7 +73,7 @@ test('facture : téléchargement possible même si le logo échoue',async()=>{
   assert.ok(w.lastPdf);assert.equal(w.lastPdf.type,'application/pdf');
   const overview=w.document.getElementById('shopOverview').textContent;
   assert.doesNotMatch(overview,/Ventes réalisées/);
-  assert.match(overview,/Total réellement encaissé/);
+  assert.match(overview,/Encaissements du mois/);
  }finally{dom.window.close();}
 });
 
@@ -262,5 +263,19 @@ test('bilan clôturé : données figées et PDF indépendant des paiements ulté
   const pdf=require('../report-pdf').create({...model,logo:fs.existsSync('test-results/logo-pdf.json')?JSON.parse(fs.readFileSync('test-results/logo-pdf.json','utf8')):null});
   fs.writeFileSync('test-results/bilan-cloture.pdf',Buffer.from(await pdf.arrayBuffer()));
   assert.notEqual(w.testApi.getState().shopData,snapshot);
+ }finally{dom.window.close();}
+});
+
+test('tableau de bord : le sélecteur change tous les indicateurs sans effacer les ventes',async()=>{
+ const {dom,w}=await boot();try{
+  w.testApi.setDashboardMonth('2026-09');
+  assert.match(w.document.getElementById('shopOverview').textContent,/500.*000/);
+  const before=JSON.stringify(w.testApi.getState().shopData);
+  const input=w.document.getElementById('dashboardMonth');input.value='2026-10';input.dispatchEvent(new w.Event('change'));
+  assert.match(w.document.getElementById('shopOverview').textContent,/Aucune vente pour ce mois/);
+  assert.doesNotMatch(w.document.getElementById('shopOverview').textContent,/500.*000/);
+  assert.equal(w.document.getElementById('dashboardMonth').value,'2026-10');
+  assert.equal(JSON.stringify(w.testApi.getState().shopData),before);
+  w.testApi.setDashboardMonth('2026-09');assert.match(w.document.getElementById('shopOverview').textContent,/500.*000/);
  }finally{dom.window.close();}
 });

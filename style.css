@@ -1324,3 +1324,5 @@ dialog::backdrop {
  #invoiceList button{padding:10px 6px;}
 }
 @media print {#versionNotice {display:none!important}}
+
+#dashboardPage.monthly-dashboard > :not(#shopOverview){display:none!important;}
