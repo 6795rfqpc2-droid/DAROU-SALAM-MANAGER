@@ -207,7 +207,9 @@ function normalizeSaleRow(row = {}) {
 }
 
 
-function showToast(message) {
+let toastTimer = null;
+
+function showToast(message, duration = 3500) {
     const toast = $("#toast");
     const toastMessage = $("#toastMessage");
 
@@ -216,9 +218,11 @@ function showToast(message) {
     toastMessage.textContent = message;
     toast.classList.add("show");
 
-    setTimeout(() => {
+    // Un nouveau message ne doit pas être effacé par le minuteur du précédent.
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
         toast.classList.remove("show");
-    }, 3500);
+    }, duration);
 }
 
 
@@ -2885,9 +2889,31 @@ async function cancelReservation(id) {
     if (!reservation) return;
 
 
+    const customerName =
+        reservation.customers?.full_name || "ce client";
+
+    const productName =
+        reservation.products?.name || "ce produit";
+
+    const advance =
+        Number(reservation.paid_amount || 0);
+
+
+    // Règle de la base : une réservation qui a reçu une avance ne peut pas
+    // être annulée avant le remboursement. On l'explique tout de suite.
+    if (advance > 0) {
+        showToast(
+            `Annulation impossible : ${formatMoney(advance)} d'avance ont déjà été reçus de ${customerName}. ` +
+            "L'avance doit d'abord être remboursée.",
+            9000
+        );
+        return;
+    }
+
+
     if (
         !confirm(
-            "Annuler cette réservation ?"
+            `Annuler la réservation de ${customerName} (${productName}) ?\n\nElle sera marquée comme annulée et retirée de cette liste.`
         )
     ) {
         return;
@@ -2905,7 +2931,7 @@ async function cancelReservation(id) {
 
     if (error) {
 
-        showToast(friendlyError(error));
+        showToast(friendlyError(error), 9000);
 
         return;
     }

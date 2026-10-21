@@ -802,6 +802,11 @@ td {
     color: var(--text);
 }
 
+/* Réservations : la date et l'heure restent sur une seule ligne. */
+#paymentsTableBody td:first-child {
+    white-space: nowrap;
+}
+
 .status {
     display: inline-flex;
     padding: 5px 9px;
